@@ -2,14 +2,16 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# Install ALL dependencies including devDeps (needed for build-time tools like tailwindcss)
-RUN npm ci
+# Force install ALL deps including devDependencies (tailwindcss, postcss, etc. needed at build time)
+RUN npm install --include=dev
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# NODE_ENV must NOT be production during build - devDeps like tailwindcss are needed
+ENV NODE_ENV=development
 RUN npm run build
 
 FROM node:22-alpine AS runner
