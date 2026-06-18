@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Lock, Clock } from "lucide-react";
 import { useLive } from "@/components/useLive";
