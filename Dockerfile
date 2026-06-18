@@ -2,6 +2,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+# Install ALL dependencies including devDeps (needed for build-time tools like tailwindcss)
 RUN npm ci
 
 FROM node:22-alpine AS builder
