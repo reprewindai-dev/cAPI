@@ -83,17 +83,18 @@ export class CovenantRuntime {
   }
 
   setPolicyEnabled(policy_id: string, enabled: boolean): void {
-    const p = this.policies.get(policy_id);
-    if (!p) return;
     // Toggling is modeled by parking the policy under a disabled key.
+    const disabledKey = `__disabled__${policy_id}`;
     if (enabled) {
-      const parked = this.policies.get(`__disabled__${policy_id}`);
+      const parked = this.policies.get(disabledKey);
       if (parked) {
         this.policies.set(policy_id, parked);
-        this.policies.delete(`__disabled__${policy_id}`);
+        this.policies.delete(disabledKey);
       }
     } else {
-      this.policies.set(`__disabled__${policy_id}`, p);
+      const p = this.policies.get(policy_id);
+      if (!p) return;
+      this.policies.set(disabledKey, p);
       this.policies.delete(policy_id);
     }
   }

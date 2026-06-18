@@ -19,7 +19,7 @@ export default function SafetyPage() {
   const quarantine = data?.quarantine ?? [];
 
   const act = async (q: QuarantinedRequest, action: "approve" | "deny") => {
-    const approver = `human:approver-${q.approvals_received.length + 1}`;
+    const approver = `human:sec-${Math.random().toString(36).slice(2, 7)}`;
     await postJSON(`/api/quarantine/${q.quarantine_id}`, { action, approver });
     refresh();
     refreshLive();
