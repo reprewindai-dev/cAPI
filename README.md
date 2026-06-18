@@ -78,3 +78,16 @@ The runtime seeds a realistic fleet (agents, capabilities, three-tier policies, 
 ## Stack
 
 Next.js 14 (App Router) · TypeScript · Tailwind CSS · Framer Motion · Node `crypto`. Part of the **Veklom** ecosystem.
+
+## Deployment
+
+This project is fully ready to be deployed to a **Coolify** instance (e.g., hosted on Hetzner) using the provided `Dockerfile` or Nixpacks.
+
+### Deploying to Coolify
+
+1. Connect your repository to your Coolify instance.
+2. Create a new Resource in Coolify and select **Project / Application**.
+3. Choose the repository and branch.
+4. Coolify will auto-detect the configuration. Under the **Build Pack** setting, select **Docker** (it should automatically pick up the `Dockerfile` at the root).
+5. Ensure the **Port** is set to `3000`.
+6. Deploy! The `Dockerfile` uses Next.js Standalone mode for a highly optimized, lightweight Node.js production image.
