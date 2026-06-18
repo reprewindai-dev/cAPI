@@ -10,8 +10,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# NODE_ENV must NOT be production during build - devDeps like tailwindcss are needed
-ENV NODE_ENV=development
+# Compile next app under production NODE_ENV to avoid React version/context mismatch
+ENV NODE_ENV=production
 RUN npm run build
 
 FROM node:22-alpine AS runner
