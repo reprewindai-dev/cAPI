@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { ArrowRight, Fingerprint, ScrollText, Brain, Scale } from "lucide-react";
 import { BRAND } from "@/lib/covenant/brand";
