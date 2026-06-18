@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { Check, X, Activity } from "lucide-react";
 import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel } from "@/components/ui";
