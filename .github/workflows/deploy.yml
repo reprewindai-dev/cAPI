@@ -1,0 +1,16 @@
+name: Deploy to Coolify
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Coolify Deployment
+        run: |
+          curl --request POST '${{ secrets.COOLIFY_WEBHOOK_URL }}' \
+               --header 'Authorization: Bearer ${{ secrets.COOLIFY_API_KEY }}'
