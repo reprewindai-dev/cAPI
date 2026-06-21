@@ -9,11 +9,12 @@ const DECISIONS: Decision[] = ["authorized", "denied", "error", "quarantined"];
 const FORWARD_STATES: LedgerForwardStatus[] = ["pending", "sealed", "failed", "disabled"];
 
 /**
- * Queryable audit trail. Returns sealed evidence newest-first with the external
- * PGL (gnomledger) mirror status per record.
+ * Handles GET requests to query and return the audit trail.
  *
- * Query params: agent_id, capability_id, status, forwarded, since (ISO-8601),
- * limit (1-500).
+ * Accepts optional query parameters to filter results: `agent_id`, `capability_id`, `status`,
+ * `forwarded`, `since` (ISO-8601), and `limit`.
+ *
+ * @returns JSON response containing `pgl_ledger.configured`, the audit query, and results
  */
 export function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;

@@ -27,19 +27,35 @@ interface LedgerEventResponse {
   prev_event_hash: string | null;
 }
 
+/**
+ * Determines if the ledger is configured.
+ *
+ * @returns `true` if the ledger URL is configured, `false` otherwise.
+ */
 export function isLedgerConfigured(): boolean {
   return LEDGER_URL.length > 0;
 }
 
+/**
+ * Builds a text summary of evidence for ledger recording.
+ *
+ * @returns A string (max 255 characters) in the format `covenant {status}: {capability_name} · {action}`
+ */
 function summarize(evidence: Evidence): string {
   const summary = `covenant ${evidence.result.status}: ${evidence.what.capability_name} · ${evidence.what.action}`;
   return summary.slice(0, 255);
 }
 
 /**
- * Mirror one sealed evidence record into gnomledger. Idempotent on the cAPI
- * `pgl_hash`, so retries (or duplicate forwards) collapse to a single chained
- * event. Resolves with a `LedgerForward` describing the outcome — never rejects.
+ * Forwards a sealed evidence record to gnomledger's ledger API.
+ *
+ * The forwarding is idempotent on the evidence's `pgl_hash`; retries or duplicate
+ * forwards collapse to a single ledger event. If the ledger is unconfigured, returns
+ * `{ status: "disabled" }` without making a request. Never rejects.
+ *
+ * @returns A `LedgerForward` result: `{ status: "disabled" }` if unconfigured;
+ *   `{ status: "sealed", event_id, event_hash, prev_event_hash?, forwarded_at }` on
+ *   successful mirroring; or `{ status: "failed", error, forwarded_at }` on error.
  */
 export async function forwardEvidence(evidence: Evidence): Promise<LedgerForward> {
   if (!isLedgerConfigured()) {
