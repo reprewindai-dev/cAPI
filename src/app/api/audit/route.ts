@@ -37,8 +37,14 @@ export function GET(req: NextRequest) {
 
   const limitParam = sp.get("limit");
   const limit = limitParam ? Number(limitParam) : undefined;
-  if (limitParam && (!Number.isFinite(limit) || (limit as number) < 1)) {
-    return NextResponse.json({ error: "limit must be a positive integer" }, { status: 400 });
+  if (
+    limitParam &&
+    (!Number.isInteger(limit) || (limit as number) < 1 || (limit as number) > 500)
+  ) {
+    return NextResponse.json(
+      { error: "limit must be an integer between 1 and 500" },
+      { status: 400 },
+    );
   }
 
   const query: AuditQuery = {

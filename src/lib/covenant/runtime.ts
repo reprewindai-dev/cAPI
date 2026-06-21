@@ -210,6 +210,7 @@ export class CovenantRuntime {
     evidence.pgl_hash = hashObject({
       ...evidence,
       pgl_hash: undefined,
+      external_ledger: undefined,
     });
     this.lastEvidenceHash = evidence.pgl_hash;
     this.evidenceLedger.set(evidence.pgl_hash, evidence);

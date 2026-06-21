@@ -18,7 +18,8 @@ import type { Evidence, LedgerForward } from "./types";
 
 const LEDGER_URL = process.env.PGL_LEDGER_URL ?? "";
 const LEDGER_API_KEY = process.env.PGL_LEDGER_API_KEY ?? "";
-const LEDGER_TIMEOUT = Number(process.env.PGL_LEDGER_TIMEOUT_MS ?? 8_000);
+const parsedTimeout = Number(process.env.PGL_LEDGER_TIMEOUT_MS ?? 8_000);
+const LEDGER_TIMEOUT = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 8_000;
 
 /** Shape returned by gnomledger `POST /api/v1/ledger/events`. */
 interface LedgerEventResponse {
