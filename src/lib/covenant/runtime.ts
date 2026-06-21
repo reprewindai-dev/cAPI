@@ -17,8 +17,10 @@ import {
 import { SafetyLayer } from "./safety";
 import { IntelligenceLayer } from "./intelligence";
 import { GovernanceLayer } from "./governance";
+import { forwardEvidence, isLedgerConfigured } from "./pgl-ledger";
 import type {
   AgentIdentity,
+  AuditQuery,
   CapabilityIdentity,
   CovenantRequest,
   CovenantResponse,
@@ -156,7 +158,7 @@ export class CovenantRuntime {
 
   private generateEvidence(
     request: CovenantRequest,
-    agent: AgentIdentity,
+    agent: AgentIdentity | undefined,
     capability: CapabilityIdentity | undefined,
     status: Decision,
     policy_id: string,
@@ -170,9 +172,9 @@ export class CovenantRuntime {
       pgl_hash: "",
       timestamp: now,
       who: {
-        agent_id: agent.agent_id,
-        agent_public_key: agent.public_key,
-        owner_id: agent.owner_id,
+        agent_id: agent?.agent_id ?? request.agent_id,
+        agent_public_key: agent?.public_key ?? "unverified",
+        owner_id: agent?.owner_id ?? "unknown",
       },
       what: {
         capability_id: request.capability_id,
@@ -208,11 +210,39 @@ export class CovenantRuntime {
     evidence.pgl_hash = hashObject({
       ...evidence,
       pgl_hash: undefined,
+      external_ledger: undefined,
     });
     this.lastEvidenceHash = evidence.pgl_hash;
     this.evidenceLedger.set(evidence.pgl_hash, evidence);
     this.auditLog.unshift(evidence);
+    this.forwardToPgl(evidence);
     return evidence;
+  }
+
+  /**
+   * Mirror a sealed evidence record into the external PGL (gnomledger). The
+   * pipeline stays synchronous: the local seal is authoritative and immediate,
+   * while the external chain is reconciled best-effort. The stored record is
+   * mutated in place when the forward resolves, so `/api/audit` and
+   * `/api/pgl/{hash}` reflect the live status.
+   */
+  private forwardToPgl(evidence: Evidence): void {
+    if (!isLedgerConfigured()) {
+      evidence.external_ledger = { status: "disabled" };
+      return;
+    }
+    evidence.external_ledger = { status: "pending" };
+    forwardEvidence(evidence)
+      .then((forward) => {
+        evidence.external_ledger = forward;
+      })
+      .catch((err: unknown) => {
+        evidence.external_ledger = {
+          status: "failed",
+          forwarded_at: new Date().toISOString(),
+          error: err instanceof Error ? err.message : String(err),
+        };
+      });
   }
 
   getEvidence(hash: string): Evidence | undefined {
@@ -221,6 +251,29 @@ export class CovenantRuntime {
 
   getAuditLog(limit = 100): Evidence[] {
     return this.auditLog.slice(0, limit);
+  }
+
+  /**
+   * Query the audit log with filters — the backing query for `GET /api/audit`.
+   * Records are returned newest-first. `since` filters on the seal timestamp
+   * (ISO-8601). `forwarded` filters on the external PGL mirror status.
+   */
+  queryAudit(filter: AuditQuery = {}): { total: number; matched: number; records: Evidence[] } {
+    const { agent_id, capability_id, status, since, forwarded, limit = 100 } = filter;
+    const sinceMs = since ? Date.parse(since) : NaN;
+    const matches = this.auditLog.filter((e) => {
+      if (agent_id && e.who.agent_id !== agent_id) return false;
+      if (capability_id && e.what.capability_id !== capability_id) return false;
+      if (status && e.result.status !== status) return false;
+      if (forwarded && (e.external_ledger?.status ?? "disabled") !== forwarded) return false;
+      if (!Number.isNaN(sinceMs) && Date.parse(e.timestamp) < sinceMs) return false;
+      return true;
+    });
+    return {
+      total: this.auditLog.length,
+      matched: matches.length,
+      records: matches.slice(0, Math.max(1, Math.min(limit, 500))),
+    };
   }
 
   /** Walk the hash chain backwards from a given evidence hash. */
@@ -261,16 +314,38 @@ export class CovenantRuntime {
       });
     };
 
-    const fail = (code: string, message: string): CovenantResponse => {
-      const delta = this.applyTrust(request.agent_id, "error");
+    /**
+     * Reject a call before it clears the gates — and still seal an evidence
+     * record. Pre-authorization rejections (unknown/suspended/spoofed agents,
+     * replays, missing capabilities) are agent actions too, so they belong in
+     * the audit log and the hash chain, not just the trace.
+     */
+    const reject = (
+      code: string,
+      message: string,
+      reason: string,
+      agentMaybe: AgentIdentity | undefined,
+      outcome: Decision = "error",
+    ): CovenantResponse => {
+      const ev = this.generateEvidence(
+        request,
+        agentMaybe,
+        undefined,
+        outcome,
+        "security-reject",
+        { reason },
+        0,
+      );
+      const delta = this.applyTrust(request.agent_id, outcome);
       return {
         connection_id: request.connection_id,
-        status: "error",
+        status: outcome,
+        evidence_hash: ev.pgl_hash,
         error: { code, message },
         metadata: {
           trust_delta: delta,
           new_trust_score: this.trust.get(request.agent_id)?.score ?? 0,
-          audit_logged: false,
+          audit_logged: true,
         },
         trace,
       };
@@ -281,11 +356,11 @@ export class CovenantRuntime {
     const agent = this.agents.get(request.agent_id);
     if (!agent) {
       mark(1, "Identity & Security", "fail", "Agent not found", { agent_id: request.agent_id }, p);
-      return fail("401", "Agent not found");
+      return reject("401", "Agent not found", "agent_not_found", undefined);
     }
     if (this.suspended.has(agent.agent_id)) {
       mark(1, "Identity & Security", "fail", "Agent suspended", { agent_id: agent.agent_id }, p);
-      return fail("403", "Agent is suspended");
+      return reject("403", "Agent is suspended", "agent_suspended", agent);
     }
     const message = canonicalRequestMessage(request);
     const signatureValid = verifyMessage(message, request.agent_signature, agent.public_key);
@@ -293,14 +368,13 @@ export class CovenantRuntime {
       mark(1, "Identity & Security", "fail", "Invalid Ed25519 signature", {
         agent: agent.agent_name,
       }, p);
-      return fail("401", "Invalid signature");
+      return reject("401", "Invalid signature", "invalid_signature", agent);
     }
     if (this.seenConnections.has(request.connection_id)) {
       mark(1, "Identity & Security", "fail", "Replay detected (duplicate connection_id)", {
         connection_id: request.connection_id,
       }, p);
-      this.applyTrust(request.agent_id, "denied");
-      return fail("403", "Duplicate request detected (replay attack)");
+      return reject("403", "Duplicate request detected (replay attack)", "replay_detected", agent, "denied");
     }
     this.seenConnections.add(request.connection_id);
     mark(1, "Identity & Security", "pass", `Verified ${agent.agent_name} · Ed25519 ok · no replay`, {
@@ -317,7 +391,7 @@ export class CovenantRuntime {
       mark(2, "Capability & Policy", "fail", "Capability not found", {
         capability_id: request.capability_id,
       }, p);
-      return fail("404", "Capability not found");
+      return reject("404", "Capability not found", "capability_not_found", agent);
     }
     const trust = this.trust.get(request.agent_id);
     const delegation = this.governance.getDelegation(request.agent_id, request.capability_id);
@@ -510,17 +584,23 @@ export class CovenantRuntime {
     // ===== PHASE 7 — EVIDENCE & PROOF =====
     p = performance.now();
     const evidence = this.generateEvidence(request, agent, capability, "authorized", policyId, output, executionMs);
+    const ledgerState = evidence.external_ledger?.status ?? "disabled";
     mark(7, "Evidence & Proof", "pass", `Sealed · ${evidence.pgl_hash.slice(0, 16)}…`, {
       pgl_hash: evidence.pgl_hash,
       previous_hash: evidence.previous_hash,
       output_hash: evidence.result.output_hash,
+      pgl_ledger: evidence.external_ledger,
     }, p);
 
     // ===== PHASE 8 — AUDIT & COMPLIANCE =====
     p = performance.now();
     this.safety.observe(request.agent_id, request.capability_id, false);
-    mark(8, "Audit & Compliance", "pass", `Logged · retained ${evidence.compliance.retention_policy} · ${evidence.compliance.data_classification}`, {
+    const ledgerNote = ledgerState === "disabled"
+      ? "local seal only"
+      : `gnomledger ${ledgerState}`;
+    mark(8, "Audit & Compliance", "pass", `Logged · retained ${evidence.compliance.retention_policy} · ${evidence.compliance.data_classification} · ${ledgerNote}`, {
       compliance: evidence.compliance,
+      pgl_ledger: evidence.external_ledger,
     }, p);
 
     // ===== PHASE 9 — RESPONSE =====

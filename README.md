@@ -69,11 +69,29 @@ The runtime seeds a realistic fleet (agents, capabilities, three-tier policies, 
 | `GET`  | `/api/discover/{agentId}` | Capability discovery (effective permissions) |
 | `GET`  | `/api/compose?agent_id&capability_id` | Policy composition + effective permissions |
 | `GET`  | `/api/pgl/{hash}` | Retrieve an evidence record |
+| `GET`  | `/api/audit` | Query the audit trail (`agent_id`, `capability_id`, `status`, `forwarded`, `since`, `limit`) |
 | `GET`  | `/api/replay/{hash}` | Walk the hash chain backwards |
 | `POST` | `/api/quarantine/{id}` | Approve / deny a quarantined request |
 | `POST` | `/api/policy/{id}` | Enable / disable a policy |
 | `POST` | `/api/agent/{id}` | Toggle agent suspension |
 | `POST` | `/api/budget` | Set an agent's budget for a capability |
+
+## PGL ledger forwarding
+
+Phase 7 always seals a local SHA-256 hash-chained record. When `PGL_LEDGER_URL`
+is set, every sealed record is also mirrored into the external **gnomledger**
+(Project Genome Ledger) via `POST /api/v1/ledger/events` — an append-only,
+per-agent hash chain that survives restarts and is independently verifiable at
+`GET /api/v1/ledger/agents/{agent_id}/verify`. Forwarding is best-effort and
+never blocks the pipeline: each evidence record carries an `external_ledger`
+status (`disabled` · `pending` · `sealed` · `failed`) visible via `/api/audit`
+and the Phase 8 trace.
+
+| Env var | Purpose | Default |
+|---------|---------|---------|
+| `PGL_LEDGER_URL` | gnomledger base URL; empty = forwarding disabled | _(unset)_ |
+| `PGL_LEDGER_API_KEY` | gnomledger `x-api-key` (operator role or higher) | _(unset)_ |
+| `PGL_LEDGER_TIMEOUT_MS` | forward request timeout | `8000` |
 
 ## Stack
 
