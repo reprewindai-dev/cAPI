@@ -1,0 +1,67 @@
+{
+  "x402_version": 2,
+  "provider": "Veklom cAPI — Covenant Execution Gateway",
+  "network": "eip155:8453",
+  "payTo": "0xCC34553b4e6332ffb9C1b61E22436ACA53113D1d",
+  "currency": "USDC",
+  "identity": {
+    "veklom_id_app": "6a20f24cc341f72c2f573eb5",
+    "veklom_id_wallet": "0x3a74772e925b54F7dAD7FD95c9Ba30825033f970",
+    "verification_domain": "veklom-id.vercel.app"
+  },
+  "routes": [
+    {
+      "route": "POST /api/compose",
+      "price": "$0.015",
+      "description": "Compose and execute a governed covenant intent through the 9-phase gate pipeline.",
+      "tags": ["capi", "compose", "covenant", "governance", "veklom"]
+    },
+    {
+      "route": "POST /api/request",
+      "price": "$0.010",
+      "description": "Submit a governance request for policy evaluation and agent routing.",
+      "tags": ["capi", "request", "governance", "veklom"]
+    },
+    {
+      "route": "GET /api/audit",
+      "price": "$0.005",
+      "description": "Query the covenant audit trail with status, timeframe, and capability filters.",
+      "tags": ["capi", "audit", "compliance", "evidence", "veklom"]
+    },
+    {
+      "route": "GET /api/pgl/{hash}",
+      "price": "$0.005",
+      "description": "Verify a PGL evidence hash against the immutable ledger.",
+      "tags": ["capi", "pgl", "evidence", "hash", "veklom"]
+    },
+    {
+      "route": "GET /api/replay/{hash}",
+      "price": "$0.005",
+      "description": "Replay a sealed covenant execution from its evidence hash.",
+      "tags": ["capi", "replay", "evidence", "veklom"]
+    },
+    {
+      "route": "GET /api/state",
+      "price": "$0.003",
+      "description": "Read current covenant engine state and agent registry snapshot.",
+      "tags": ["capi", "state", "registry", "veklom"]
+    },
+    {
+      "route": "GET /api/discover/{agentId}",
+      "price": "$0.003",
+      "description": "Discover agent capabilities and covenant compliance status.",
+      "tags": ["capi", "discover", "agent", "veklom"]
+    },
+    {
+      "route": "GET /api/budget",
+      "price": "$0.003",
+      "description": "Query covenant budget allocation and spend status.",
+      "tags": ["capi", "budget", "billing", "veklom"]
+    }
+  ],
+  "discovery": {
+    "bazaar": "https://bazaar.cdp.coinbase.com",
+    "openapi": "https://capi.veklom.com/api/state",
+    "veklom_id": "https://veklom-id.vercel.app"
+  }
+}

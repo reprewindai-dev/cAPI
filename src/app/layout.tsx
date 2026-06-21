@@ -19,6 +19,18 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: `${BRAND.name} — ${BRAND.tagline}`,
   description: BRAND.subtagline,
+  other: {
+    "fc:frame": JSON.stringify({
+      version: "1",
+      name: "Veklom cAPI",
+      appId: "6a20f24cc341f72c2f573eb5",
+    }),
+    "x402:payTo": "0xCC34553b4e6332ffb9C1b61E22436ACA53113D1d",
+    "x402:network": "eip155:8453",
+    "x402:discovery": "/.well-known/x402.json",
+    "veklom:id-wallet": "0x3a74772e925b54F7dAD7FD95c9Ba30825033f970",
+    "veklom:service": "capi",
+  },
 };
 
 export default function RootLayout({
