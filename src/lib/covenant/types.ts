@@ -128,6 +128,18 @@ export type DataClassification =
   | "confidential"
   | "restricted";
 
+export type LedgerForwardStatus = "pending" | "sealed" | "failed" | "disabled";
+
+/** Outcome of mirroring an evidence record into the external PGL (gnomledger). */
+export interface LedgerForward {
+  status: LedgerForwardStatus;
+  event_id?: string;
+  event_hash?: string;
+  prev_event_hash?: string;
+  forwarded_at?: string;
+  error?: string;
+}
+
 export interface Evidence {
   evidence_id: string;
   connection_id: string;
@@ -156,6 +168,19 @@ export interface Evidence {
     retention_policy: string;
   };
   previous_hash?: string;
+  /** External PGL (gnomledger) mirror status; set after Phase 7 sealing. */
+  external_ledger?: LedgerForward;
+}
+
+/** Filters accepted by the queryable audit-trail endpoint. */
+export interface AuditQuery {
+  agent_id?: string;
+  capability_id?: string;
+  status?: Decision;
+  /** ISO-8601 lower bound on the evidence seal timestamp. */
+  since?: string;
+  forwarded?: LedgerForwardStatus;
+  limit?: number;
 }
 
 export interface TrustScore {
