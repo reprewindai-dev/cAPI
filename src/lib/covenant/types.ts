@@ -44,7 +44,7 @@ export type CapabilityCategory =
   | "human"
   | "sensor";
 
-export type CapabilityMethod = "mcp" | "http" | "local";
+export type CapabilityMethod = "mcp" | "http" | "https" | "local";
 
 export type CostKind = "carbon" | "credits" | "payment" | "free";
 
