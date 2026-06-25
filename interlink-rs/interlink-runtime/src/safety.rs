@@ -63,4 +63,10 @@ impl SafetyEnforcer {
                     self.sanitize_output(value);
                 }
             }
-        } else if let Some(arr) = result.
+        } else if let Some(arr) = result.as_array_mut() {
+            for item in arr.iter_mut() {
+                self.sanitize_output(item);
+            }
+        }
+    }
+}

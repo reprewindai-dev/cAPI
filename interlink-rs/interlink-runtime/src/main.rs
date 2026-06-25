@@ -1,80 +1,83 @@
 use std::sync::Arc;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use interlink_mcpapi::{Tool, RiskLevel};
-use crate::router::{AppState, create_router};
-use crate::safety::SafetyEnforcer;
-use crate::intelligence::IntelligenceLayer;
-use crate::governance::GovernanceManager;
+use interlink_mcpapi::{Capability, RiskLevel};
+use interlink_runtime::{router::{AppState, create_router}, safety::SafetyEnforcer, governance::GovernanceBroker, ledger::PglClient};
 
-mod safety;
-mod intelligence;
-mod governance;
-mod router;
-mod webmcp;
+// No local mod declarations needed, using interlink_runtime lib
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize Amphoteric Observability (AgentOps + Web Performance)
+    // Initialize AgentOps Telemetry
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // 2026 Sovereign Tool Catalog
-    // Tools are shared across API, MCP, and WebMCP personas
-    let tools = vec![
-        Tool {
-            name: "submit_feedback".to_string(),
-            description: "Submits user feedback to the edge node (WebMCP Declarative)".to_string(),
+    // Unified Registration Surface: Deriving MCP and API contracts from a single source
+    let capabilities = vec![
+        Capability {
+            id: "github.get_repo".into(),
+            title: "Get Repository Details".into(),
+            description: "Retrieves metadata for a specific repository.".into(),
+            tags: vec!["github".into(), "read".into()],
+            risk: RiskLevel::Low,
+            scopes: vec!["repo:read".into()],
             input_schema: serde_json::json!({
                 "type": "object",
-                "properties": { "feedback": { "type": "string" } }
+                "properties": { "repo": { "type": "string" } },
+                "required": ["repo"]
             }),
-            output_schema: None,
-            risk_level: RiskLevel::Low,
-            toolset: "feedback".to_string(),
+            output_schema: serde_json::json!({ "type": "object" }),
+            toolset: "github".into(),
         },
-        Tool {
-            name: "get_edge_diagnostics".to_string(),
-            description: "Retrieves local sensor data from the Quinte West edge node (WebMCP Imperative)".to_string(),
+        Capability {
+            id: "github.create_issue".into(),
+            title: "Create Issue".into(),
+            description: "Creates a new issue in the target repository.".into(),
+            tags: vec!["github".into(), "write".into()],
+            risk: RiskLevel::Medium,
+            scopes: vec!["repo:write".into()],
             input_schema: serde_json::json!({
                 "type": "object",
-                "properties": { "include_telemetry": { "type": "boolean" } }
+                "properties": {
+                    "repo": { "type": "string" },
+                    "title": { "type": "string" },
+                    "body": { "type": "string" }
+                },
+                "required": ["repo", "title"]
             }),
-            output_schema: None,
-            risk_level: RiskLevel::Medium,
-            toolset: "diagnostics".to_string(),
+            output_schema: serde_json::json!({ "type": "object" }),
+            toolset: "github".into(),
         },
-        Tool {
-            name: "sync_v2_data".to_string(),
-            description: "Synchronizes data between Backends (MCP Persona)".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": { "payload": { "type": "string" } }
-            }),
-            output_schema: None,
-            risk_level: RiskLevel::High,
-            toolset: "admin".to_string(),
+        Capability {
+            id: "admin.delete_all".into(),
+            title: "CRITICAL: Delete All Data".into(),
+            description: "Wipes the entire tenant database. IRREVERSIBLE.".into(),
+            tags: vec!["admin".into(), "destructive".into()],
+            risk: RiskLevel::Critical,
+            scopes: vec!["admin:all".into()],
+            input_schema: serde_json::json!({ "type": "object" }),
+            output_schema: serde_json::json!({ "type": "object" }),
+            toolset: "admin".into(),
         },
     ];
 
-    // Initialize Unified Amphoteric Layers
+    // Initialize Amphoteric State
     let state = Arc::new(AppState {
-        safety: SafetyEnforcer::new(tools),
-        intelligence: IntelligenceLayer::new(),
-        governance: GovernanceManager::new(),
+        safety: SafetyEnforcer::new(capabilities),
+        governance: GovernanceBroker::new(),
+        ledger: crate::ledger::PglClient::new(),
     });
 
-    // Build the Amphoteric Router (Unifying Web, API, and MCP)
     let app = create_router(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!(
+        category = "Unified MCP-API Runtime",
         runtime = "Amphoteric",
-        location = "Quinte West Edge",
-        infrastructure = "Starlink / Execulink Hybrid",
+        governance = "MCPAPI v2.0",
         address = %addr,
-        "Sovereign Agentic Runtime Initialized"
+        "Interlink Gateway Initialized"
     );
 
     let listener = tokio::net::TcpListener::bind(addr).await?;

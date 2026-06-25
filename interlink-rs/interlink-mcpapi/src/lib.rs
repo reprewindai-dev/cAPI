@@ -86,16 +86,20 @@ pub enum RuntimeResponse {
     Success {
         result: serde_json::Value,
         trace_id: String,
+        pgl_hash: Option<String>, // Hash from Gnomledger/PGL
     },
     SafetyViolation {
         reason: String,
+        pgl_hash: Option<String>,
     },
     GovernanceRequired {
         elicitation_id: Uuid,
         message: String,
+        pgl_hash: Option<String>,
     },
     PolicyDenied {
         reason: String,
+        pgl_hash: Option<String>,
     },
     Error {
         message: String,

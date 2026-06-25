@@ -1,61 +1,39 @@
-use interlink_mcpapi::{ToolCallRequest, RiskLevel};
-use serde::{Deserialize, Serialize};
+use interlink_mcpapi::{InvocationRequest, Capability, RiskLevel};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum PolicyDecision {
     Allow,
     Deny { reason: String },
-    RequireGovernance { message: String },
+    RequireApproval { message: String },
 }
 
-pub struct IntelligenceLayer {
-    // In production, this might hold a Cedar PolicySet or a reference to an OPA agent
-}
+pub struct PolicyEngine;
 
-impl IntelligenceLayer {
-    pub fn new() -> Self {
-        Self {}
-    }
+impl PolicyEngine {
+    /// Evaluates capability semantics and context to reach a decision
+    pub fn evaluate(req: &InvocationRequest, cap: &Capability) -> PolicyDecision {
+        // 1. Scope Validation
+        // In a real system, we'd check req.context.scopes against cap.scopes
+        // Here we simulate a "missing scope" check for demonstration
+        if cap.id == "admin.delete_all" {
+             return PolicyDecision::Deny { reason: "Actor lacks required scope: admin:write".to_string() };
+        }
 
-    /// Evaluates the risk and policy for a given tool call
-    pub fn evaluate(&self, request: &ToolCallRequest, risk_level: RiskLevel) -> PolicyDecision {
-        // 1. Contextual Risk Scoring
-        let score = self.calculate_risk_score(request, risk_level);
-
-        // 2. Policy Enforcement
-        // Example logic:
-        // - If Critical risk -> Always require governance
-        // - If Prod environment and High risk -> Require governance
-        // - If Dev and Low risk -> Allow
-
-        match (request.context.environment.as_str(), risk_level) {
-            (_, RiskLevel::Critical) => PolicyDecision::RequireGovernance {
-                message: "Critical risk action requires explicit oversight".to_string()
+        // 2. Environment-Aware Policy
+        match (req.context.environment.as_str(), cap.risk) {
+            // High risk in prod always requires approval
+            ("prod", RiskLevel::High) => PolicyDecision::RequireApproval {
+                message: format!("Operation '{}' on production requires human authorization.", cap.title)
             },
-            ("prod", RiskLevel::High) => PolicyDecision::RequireGovernance {
-                message: "High risk action in Production requires approval".to_string()
+            // Critical risk always requires approval regardless of env
+            (_, RiskLevel::Critical) => PolicyDecision::RequireApproval {
+                message: "Critical operation requires senior operator oversight.".to_string()
             },
-            ("prod", RiskLevel::Medium) => PolicyDecision::RequireGovernance {
-                message: "Medium risk in Production gated by policy".to_string()
-            },
-            ("dev", RiskLevel::High) => PolicyDecision::Allow, // Dev is more permissive
-            (_, _) if score > 80 => PolicyDecision::Deny {
-                reason: "Contextual risk score exceeds safety threshold".to_string()
+            // Specific block for untrusted content + medium risk (Enhanced Lockdown)
+            (_, RiskLevel::Medium) if req.context.is_untrusted_content => PolicyDecision::RequireApproval {
+                message: "Elevated risk while processing untrusted content requires verification.".to_string()
             },
             _ => PolicyDecision::Allow,
-        }
-    }
-
-    fn calculate_risk_score(&self, _request: &ToolCallRequest, risk_level: RiskLevel) -> u8 {
-        // Real implementation would look at:
-        // - Agent reputation
-        // - Recent anomaly patterns (e.g. rapid fire calls)
-        // - Resource sensitivity
-        match risk_level {
-            RiskLevel::Low => 10,
-            RiskLevel::Medium => 40,
-            RiskLevel::High => 70,
-            RiskLevel::Critical => 95,
         }
     }
 }
