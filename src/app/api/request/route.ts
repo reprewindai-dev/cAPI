@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const response = getEngine().signAndProcess({
+  const response = await getEngine().signAndProcess({
     agent_id: body.agent_id,
     capability_id: body.capability_id,
     action: body.action,

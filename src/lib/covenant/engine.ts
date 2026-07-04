@@ -49,7 +49,7 @@ export class CovenantEngine {
    * Build a canonical request, sign it with the agent's private key, and run it
    * through the full pipeline. This is exactly what an SDK client would do.
    */
-  signAndProcess(call: SignedCallInput): CovenantResponse {
+  async signAndProcess(call: SignedCallInput): Promise<CovenantResponse> {
     const privateKey = this.keystore.get(call.agent_id);
     const timestamp = new Date().toISOString();
     const connection_id = randomUUID();
@@ -70,7 +70,7 @@ export class CovenantEngine {
       agent_signature: signature,
       context: call.context ?? { trace_id: randomUUID() },
     };
-    return this.runtime.process(request, {
+    return await this.runtime.process(request, {
       approvals: call.approvals,
       bypass: call.bypass,
     });

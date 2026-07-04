@@ -153,15 +153,22 @@ export class MCPBridge {
         const controller = new AbortController();
         const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
 
+        const headers: Record<string, string> = {
+          "Content-Type":  "application/json",
+          "X-API-Key":     BYOS_API_KEY,
+          "X-Covenant-Id": request.connection_id,
+          "X-Agent-Id":    request.agent_id,
+          "X-Trace-Id":    request.context.trace_id ?? "",
+        };
+        if (BYOS_API_KEY) {
+          headers["Authorization"] = BYOS_API_KEY.startsWith("Bearer ")
+            ? BYOS_API_KEY
+            : `Bearer ${BYOS_API_KEY}`;
+        }
+
         const res = await fetch(BYOS_MCP_GATEWAY, {
           method:  "POST",
-          headers: {
-            "Content-Type":  "application/json",
-            "X-API-Key":     BYOS_API_KEY,
-            "X-Covenant-Id": request.connection_id,
-            "X-Agent-Id":    request.agent_id,
-            "X-Trace-Id":    request.context.trace_id ?? "",
-          },
+          headers,
           body:   JSON.stringify(payload),
           signal: controller.signal,
         });

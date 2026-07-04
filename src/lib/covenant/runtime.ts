@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { MCPBridge } from "./mcp-bridge";
 import {
   canonicalRequestMessage,
   hashObject,
@@ -293,7 +294,7 @@ export class CovenantRuntime {
 
   // ---- the pipeline ---------------------------------------------------------
 
-  process(request: CovenantRequest, opts: ProcessOptions = {}): CovenantResponse {
+  async process(request: CovenantRequest, opts: ProcessOptions = {}): Promise<CovenantResponse> {
     const trace: PhaseTrace[] = [];
     const t0 = performance.now();
     const mark = (
@@ -573,7 +574,7 @@ export class CovenantRuntime {
     // ===== PHASE 6 — EXECUTION =====
     p = performance.now();
     const execStart = performance.now();
-    const output = this.executeCapability(capability, request);
+    const output = await this.executeCapability(capability, request);
     const executionMs = Number((performance.now() - execStart).toFixed(2));
     mark(6, "Execution", "pass", `${capability.endpoint} · ${executionMs}ms`, {
       method: capability.endpoint.split("://")[0],
@@ -627,28 +628,19 @@ export class CovenantRuntime {
     };
   }
 
-  /** Deterministic capability execution keyed off method/category. */
-  private executeCapability(
-    cap: CapabilityIdentity,
+  private async executeCapability(
+    cap:     CapabilityIdentity,
     request: CovenantRequest,
-  ): Record<string, unknown> {
-    const method = cap.endpoint.split("://")[0];
-    const base = {
-      capability: cap.capability_name,
-      method,
-      action: request.action,
+  ): Promise<Record<string, unknown>> {
+    const result = await MCPBridge.execute(cap, request);
+    return {
+      ...result.output,
+      _bridge: {
+        transport:    result.transport,
+        endpoint:     result.endpoint,
+        execution_ms: result.execution_ms,
+        retried:      result.retried,
+      },
     };
-    switch (cap.metadata.category) {
-      case "database":
-        return { ...base, rows: 3, query_ok: true, sample: request.input };
-      case "tool":
-        return { ...base, ok: true, result: `executed ${request.action}`, echo: request.input };
-      case "service":
-        return { ...base, status: 200, body: { ok: true, input: request.input } };
-      case "agent":
-        return { ...base, delegated: true, sub_result: "completed" };
-      default:
-        return { ...base, ok: true };
-    }
   }
 }
