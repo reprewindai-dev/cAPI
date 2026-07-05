@@ -1,15 +1,20 @@
 use serde::{Serialize, Deserialize};
 use interlink_mcpapi::InvocationRequest;
 use sha2::{Sha256, Digest};
+use hmac::{Hmac, Mac};
+use rand::Rng;
 use hex;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use dashmap::DashMap;
+
+type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EvidenceRecord {
     pub timestamp: String,
     pub request_hash: String,
+    pub seal_nonce: String,
     pub outcome: String,
     pub actor_id: String,
     pub capability_id: String,
@@ -31,14 +36,32 @@ impl PglClient {
     pub async fn seal_evidence(&self, req: &InvocationRequest, outcome: &str) -> String {
         let timestamp = Utc::now().to_rfc3339();
 
-        // Cryptographic Hash Integrity: Compute hash of the core request
-        let mut hasher = Sha256::new();
-        hasher.update(serde_json::to_string(&req).unwrap_or_default());
-        let pgl_hash = hex::encode(hasher.finalize());
+        // Generate cryptographic nonce for replay resistance
+        let nonce_bytes: [u8; 16] = rand::thread_rng().gen();
+        let seal_nonce = hex::encode(nonce_bytes);
+
+        let request_json = serde_json::to_string(&req).unwrap_or_default();
+        let payload = format!("{}:{}", seal_nonce, request_json);
+
+        // HMAC-SHA256 when PGL_HMAC_SECRET is set, plain SHA-256 otherwise
+        let pgl_hash = match std::env::var("PGL_HMAC_SECRET") {
+            Ok(secret) if !secret.is_empty() => {
+                let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+                    .expect("HMAC accepts any key length");
+                mac.update(payload.as_bytes());
+                hex::encode(mac.finalize().into_bytes())
+            }
+            _ => {
+                let mut hasher = Sha256::new();
+                hasher.update(payload.as_bytes());
+                hex::encode(hasher.finalize())
+            }
+        };
 
         let record = EvidenceRecord {
             timestamp,
             request_hash: pgl_hash.clone(),
+            seal_nonce,
             outcome: outcome.to_string(),
             actor_id: req.context.actor_id.clone(),
             capability_id: req.capability_id.clone(),

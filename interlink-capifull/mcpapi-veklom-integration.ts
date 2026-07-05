@@ -298,10 +298,14 @@ export class VeklomMCPAPIIntegration {
   }
 
   private hashPGLEntry(entry: VeklomPGLEntry): string {
-    return crypto
-      .createHash("sha256")
-      .update(JSON.stringify(entry))
-      .digest("hex");
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const canonical = JSON.stringify(entry);
+    const payload = `${nonce}:${canonical}`;
+    const hmacSecret = process.env.PGL_HMAC_SECRET ?? "";
+    if (hmacSecret.length > 0) {
+      return crypto.createHmac("sha256", hmacSecret).update(payload).digest("hex");
+    }
+    return crypto.createHash("sha256").update(payload).digest("hex");
   }
 
   getPGLEntry(hash: string): VeklomPGLEntry | undefined {

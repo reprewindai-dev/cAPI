@@ -95,6 +95,8 @@ interface Evidence {
   evidence_id: string;
   connection_id: string;
   pgl_hash: string;
+  /** Cryptographic nonce embedded in the HMAC hash input to prevent replay/forgery. */
+  seal_nonce: string;
   timestamp: string;
   who: {
     agent_id: string;
@@ -427,7 +429,8 @@ export class MCPAPIRuntime {
     const evidence: Evidence = {
       evidence_id: crypto.randomUUID(),
       connection_id: request.connection_id,
-      pgl_hash: "", // Will be filled by PGL client
+      pgl_hash: "",
+      seal_nonce: "",
       timestamp: new Date().toISOString(),
       who: {
         agent_id: agent.agent_id,
@@ -488,11 +491,14 @@ export class MCPAPIRuntime {
   }
 
   private registerEvidenceToPGL(evidence: Evidence): string {
-    // Simulate PGL registration
-    const pgl_hash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(evidence))
-      .digest("base64");
+    const nonce = crypto.randomBytes(16).toString("hex");
+    evidence.seal_nonce = nonce;
+    const canonical = JSON.stringify({ ...evidence, pgl_hash: undefined });
+    const payload = `${nonce}:${canonical}`;
+    const hmacSecret = process.env.PGL_HMAC_SECRET ?? "";
+    const pgl_hash = hmacSecret.length > 0
+      ? crypto.createHmac("sha256", hmacSecret).update(payload).digest("base64")
+      : crypto.createHash("sha256").update(payload).digest("base64");
 
     evidence.pgl_hash = pgl_hash;
     this.pglLedger.set(pgl_hash, evidence);
