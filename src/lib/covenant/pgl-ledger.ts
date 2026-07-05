@@ -73,6 +73,7 @@ export async function forwardEvidence(evidence: Evidence): Promise<LedgerForward
       evidence_id: evidence.evidence_id,
       connection_id: evidence.connection_id,
       capi_pgl_hash: evidence.pgl_hash,
+      capi_seal_nonce: evidence.seal_nonce,
       capi_previous_hash: evidence.previous_hash ?? null,
       decision: evidence.result.status,
       what: evidence.what,

@@ -11,8 +11,10 @@ import {
   sign as edSign,
   verify as edVerify,
   createHash,
+  createHmac,
   createPublicKey,
   createPrivateKey,
+  randomBytes,
   KeyObject,
 } from "crypto";
 
@@ -99,4 +101,29 @@ export function sha256(data: string): string {
 /** Deterministic content hash used for evidence + chain links. */
 export function hashObject(obj: unknown): string {
   return sha256(JSON.stringify(obj));
+}
+
+// ---------------------------------------------------------------------------
+// HMAC-hardened evidence hashing
+// ---------------------------------------------------------------------------
+
+const PGL_HMAC_SECRET = process.env.PGL_HMAC_SECRET ?? "";
+
+/** Generate a cryptographic nonce (hex-encoded). */
+export function generateNonce(bytes = 16): string {
+  return randomBytes(bytes).toString("hex");
+}
+
+/**
+ * HMAC-SHA256 hash of canonical JSON with embedded nonce.
+ * Falls back to plain SHA-256 when PGL_HMAC_SECRET is unset so the
+ * pipeline never breaks in dev environments.
+ */
+export function hmacHashObject(obj: unknown, nonce: string): string {
+  const canonical = JSON.stringify(obj, Object.keys(obj as Record<string, unknown>).sort());
+  const payload = `${nonce}:${canonical}`;
+  if (PGL_HMAC_SECRET.length > 0) {
+    return createHmac("sha256", PGL_HMAC_SECRET).update(payload).digest("hex");
+  }
+  return createHash("sha256").update(payload).digest("hex");
 }

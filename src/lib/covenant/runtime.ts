@@ -11,7 +11,9 @@ import { randomUUID } from "crypto";
 import { MCPBridge } from "./mcp-bridge";
 import {
   canonicalRequestMessage,
+  generateNonce,
   hashObject,
+  hmacHashObject,
   sha256,
   verifyMessage,
 } from "./crypto";
@@ -167,10 +169,12 @@ export class CovenantRuntime {
     executionMs: number,
   ): Evidence {
     const now = new Date().toISOString();
+    const sealNonce = generateNonce();
     const evidence: Evidence = {
       evidence_id: randomUUID(),
       connection_id: request.connection_id,
       pgl_hash: "",
+      seal_nonce: sealNonce,
       timestamp: now,
       who: {
         agent_id: agent?.agent_id ?? request.agent_id,
@@ -208,11 +212,11 @@ export class CovenantRuntime {
       },
       previous_hash: this.lastEvidenceHash ?? undefined,
     };
-    evidence.pgl_hash = hashObject({
+    evidence.pgl_hash = hmacHashObject({
       ...evidence,
       pgl_hash: undefined,
       external_ledger: undefined,
-    });
+    }, sealNonce);
     this.lastEvidenceHash = evidence.pgl_hash;
     this.evidenceLedger.set(evidence.pgl_hash, evidence);
     this.auditLog.unshift(evidence);

@@ -144,6 +144,8 @@ export interface Evidence {
   evidence_id: string;
   connection_id: string;
   pgl_hash: string;
+  /** Cryptographic nonce embedded in the HMAC hash input to prevent replay/forgery. */
+  seal_nonce: string;
   timestamp: string;
   who: { agent_id: string; agent_public_key: string; owner_id: string };
   what: { capability_id: string; capability_name: string; action: string };
