@@ -71,7 +71,11 @@ async fn main() -> anyhow::Result<()> {
 
     let app = create_router(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8080);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!(
         category = "Unified MCP-API Runtime",
         runtime = "Amphoteric",
