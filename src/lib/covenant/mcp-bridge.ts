@@ -21,6 +21,7 @@ import type { CapabilityIdentity, CovenantRequest, CapabilityMethod } from "./ty
 const BYOS_MCP_GATEWAY = process.env.BYOS_MCP_GATEWAY_URL ?? "https://api.veklom.com/api/v1/mcp";
 const BYOS_API_KEY      = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const EXECUTION_TIMEOUT = Number(process.env.COVENANT_EXEC_TIMEOUT_MS ?? 10_000);
+const ALLOW_LOCAL_EXECUTION = process.env.COVENANT_ALLOW_LOCAL_EXECUTION === "true";
 
 // ---------------------------------------------------------------------------
 // Execution result — matches what generateEvidence() expects
@@ -88,9 +89,15 @@ export class MCPBridge {
         ({ output, retried } = await MCPBridge.callMCPGateway(capability, request));
       } else if (method === "http" || method === "https") {
         ({ output, retried } = await MCPBridge.callHTTP(capability, request));
-      } else {
-        // local:// — keep the deterministic stub for dev/test
+      } else if (ALLOW_LOCAL_EXECUTION) {
         output  = MCPBridge.localStub(capability, request);
+        retried = 0;
+      } else {
+        output = {
+          ok: false,
+          error: "local execution disabled; configure a real mcp/http/https capability endpoint",
+          capability: capability.capability_name,
+        };
         retried = 0;
       }
 

@@ -16,7 +16,8 @@ const FORWARD_STATES: LedgerForwardStatus[] = ["pending", "sealed", "failed", "d
  *
  * @returns JSON response containing `pgl_ledger.configured`, the audit query, and results
  */
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
+  await getEngine().syncRegistry();
   const sp = req.nextUrl.searchParams;
 
   const statusParam = sp.get("status");

@@ -1,9 +1,9 @@
 /**
  * Covenant Engine — process-wide singleton.
  *
- * Wires the runtime + layers, holds the agent keystore (so the console can sign
- * calls on behalf of demo agents using real Ed25519 keys), seeds a realistic
- * fleet, and warms the ledger with historical traffic.
+ * Wires the runtime + layers and holds any server-managed agent keystore.
+ * Production does not create demo agents or warm evidence automatically; state
+ * must come from a configured registry or signed runtime requests.
  */
 
 import { randomUUID } from "crypto";
@@ -13,8 +13,9 @@ import {
   signMessage,
 } from "./crypto";
 import { CovenantRuntime, type ProcessOptions } from "./runtime";
+import { loadConfiguredRegistry, type CovenantRegistryDocument } from "./registry";
 import { seedFleet } from "./seed";
-import type { CovenantRequest, CovenantResponse } from "./types";
+import type { CovenantRequest, CovenantResponse, RegistryProofState } from "./types";
 
 export interface SignedCallInput {
   agent_id: string;
@@ -24,7 +25,7 @@ export interface SignedCallInput {
   context?: CovenantRequest["context"];
   approvals?: string[];
   bypass?: ProcessOptions["bypass"];
-  /** Force an invalid signature to demonstrate Phase 1 rejection. */
+  /** Force an invalid signature for explicit negative-path tests only. */
   tamper?: boolean;
 }
 
@@ -32,13 +33,34 @@ export class CovenantEngine {
   readonly runtime = new CovenantRuntime();
   /** agent_id -> private key (base64 PKCS8). Server-side only. */
   private keystore = new Map<string, string>();
+  private registryProof: RegistryProofState = {
+    state: "needs_proof",
+    source: "none",
+    detail: "Runtime has not loaded a registry source yet",
+    checked_at: new Date().toISOString(),
+  };
+  private registrySyncAt = 0;
+  private registrySyncInFlight: Promise<void> | null = null;
+  private registrySkipped: string[] = [];
 
   constructor() {
-    seedFleet(this);
+    if (process.env.COVENANT_ENABLE_DEMO_SEED === "true") {
+      seedFleet(this);
+      this.registryProof = {
+        state: "degraded",
+        source: "demo-seed",
+        detail: "COVENANT_ENABLE_DEMO_SEED=true loaded non-production demo seed data",
+        checked_at: new Date().toISOString(),
+      };
+    }
   }
 
   registerKey(agent_id: string, privateKeyB64: string): void {
     this.keystore.set(agent_id, privateKeyB64);
+  }
+
+  hasSigningKey(agent_id: string): boolean {
+    return this.keystore.has(agent_id);
   }
 
   newKeyPair() {
@@ -74,6 +96,39 @@ export class CovenantEngine {
       approvals: call.approvals,
       bypass: call.bypass,
     });
+  }
+
+  registryStatus(): RegistryProofState & { skipped: string[] } {
+    return { ...this.registryProof, skipped: this.registrySkipped };
+  }
+
+  registerDocument(document: CovenantRegistryDocument): void {
+    document.agents?.forEach((agent) => {
+      const { private_key_b64: privateKeyB64, ...identity } = agent;
+      this.runtime.registerAgent(identity);
+      if (privateKeyB64) this.registerKey(identity.agent_id, privateKeyB64);
+    });
+    document.capabilities?.forEach((capability) => this.runtime.registerCapability(capability));
+    document.policies?.forEach((policy) => this.runtime.registerPolicy(policy));
+    document.cost_models?.forEach((model) => this.runtime.intelligence.registerCostModel(model));
+    document.baselines?.forEach((baseline) => this.runtime.safety.setBaseline(baseline));
+  }
+
+  async syncRegistry(force = false): Promise<void> {
+    const ttlMs = Number(process.env.COVENANT_REGISTRY_TTL_MS ?? 30_000);
+    if (!force && Date.now() - this.registrySyncAt < ttlMs) return;
+    if (this.registrySyncInFlight) return this.registrySyncInFlight;
+
+    this.registrySyncInFlight = (async () => {
+      const result = await loadConfiguredRegistry();
+      this.registryProof = result.proof;
+      this.registrySkipped = result.skipped;
+      this.registrySyncAt = Date.now();
+      if (result.document) this.registerDocument(result.document);
+    })().finally(() => {
+      this.registrySyncInFlight = null;
+    });
+    return this.registrySyncInFlight;
   }
 }
 

@@ -43,6 +43,7 @@ export interface Metrics {
 }
 
 export interface Snapshot {
+  proof: ReturnType<ReturnType<typeof getEngine>["registryStatus"]>;
   metrics: Metrics;
   agents: AgentView[];
   capabilities: CapabilityIdentity[];
@@ -85,6 +86,7 @@ export function buildSnapshot(): Snapshot {
   const quarantine = rt.safety.listQuarantine();
 
   return {
+    proof: engine.registryStatus(),
     metrics: {
       total,
       authorized,

@@ -580,11 +580,51 @@ export class CovenantRuntime {
     const execStart = performance.now();
     const output = await this.executeCapability(capability, request);
     const executionMs = Number((performance.now() - execStart).toFixed(2));
-    mark(6, "Execution", "pass", `${capability.endpoint} · ${executionMs}ms`, {
+    const executionFailed = output.ok === false;
+    mark(6, "Execution", executionFailed ? "fail" : "pass", `${capability.endpoint} · ${executionMs}ms`, {
       method: capability.endpoint.split("://")[0],
       endpoint: capability.endpoint,
       output,
     }, p);
+    if (executionFailed) {
+      p = performance.now();
+      const evidence = this.generateEvidence(request, agent, capability, "error", policyId, output, executionMs);
+      mark(7, "Evidence & Proof", "pass", `Sealed execution error · ${evidence.pgl_hash.slice(0, 16)}…`, {
+        pgl_hash: evidence.pgl_hash,
+        previous_hash: evidence.previous_hash,
+        output_hash: evidence.result.output_hash,
+        pgl_ledger: evidence.external_ledger,
+      }, p);
+      p = performance.now();
+      mark(8, "Audit & Compliance", "pass", `Logged · retained ${evidence.compliance.retention_policy} · ${evidence.compliance.data_classification}`, {
+        compliance: evidence.compliance,
+        pgl_ledger: evidence.external_ledger,
+      }, p);
+      p = performance.now();
+      const delta = this.applyTrust(request.agent_id, "error");
+      const newScore = this.trust.get(request.agent_id)?.score ?? 0;
+      mark(9, "Response", "fail", `error · trust ${delta} → ${newScore}`, {
+        trust_delta: delta,
+        new_trust_score: newScore,
+        total_pipeline_ms: Number((performance.now() - t0).toFixed(2)),
+      }, p);
+      return {
+        connection_id: request.connection_id,
+        status: "error",
+        evidence_hash: evidence.pgl_hash,
+        error: {
+          code: "502",
+          message: typeof output.error === "string" ? output.error : "Capability execution failed",
+        },
+        result: {
+          output,
+          output_hash: evidence.result.output_hash,
+          execution_time_ms: executionMs,
+        },
+        metadata: { trust_delta: delta, new_trust_score: newScore, audit_logged: true },
+        trace,
+      };
+    }
 
     // ===== PHASE 7 — EVIDENCE & PROOF =====
     p = performance.now();

@@ -36,6 +36,13 @@ export interface AgentIdentity {
   };
 }
 
+export interface RegistryProofState {
+  state: "ready" | "degraded" | "needs_proof";
+  source: "configured-registry" | "byos-registry" | "signed-runtime" | "demo-seed" | "none";
+  detail: string;
+  checked_at: string;
+}
+
 export type CapabilityCategory =
   | "tool"
   | "service"
@@ -51,6 +58,7 @@ export type CostKind = "carbon" | "credits" | "payment" | "free";
 export interface CapabilityIdentity {
   capability_id: string;
   capability_name: string;
+  description?: string;
   provider_id: string;
   endpoint: string;
   input_schema: Record<string, unknown>;
@@ -64,6 +72,10 @@ export interface CapabilityIdentity {
     requires_approval: boolean;
     cost: CostKind;
     rate_limit: number;
+    tags?: string[];
+    risk_level?: Severity;
+    audit_level?: string;
+    provider?: string;
   };
 }
 

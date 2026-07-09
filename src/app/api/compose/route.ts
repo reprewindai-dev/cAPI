@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { composeFor } from "@/lib/covenant/api";
+import { getEngine } from "@/lib/covenant/engine";
 
 export const dynamic = "force-dynamic";
 
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
+  await getEngine().syncRegistry();
   const agent = req.nextUrl.searchParams.get("agent_id");
   const cap = req.nextUrl.searchParams.get("capability_id");
   if (!agent || !cap) {

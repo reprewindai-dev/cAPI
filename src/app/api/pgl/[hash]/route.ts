@@ -3,11 +3,13 @@ import { getEngine } from "@/lib/covenant/engine";
 
 export const dynamic = "force-dynamic";
 
-export function GET(
+export async function GET(
   _req: NextRequest,
   { params }: { params: { hash: string } },
 ) {
-  const evidence = getEngine().runtime.getEvidence(params.hash);
+  const engine = getEngine();
+  await engine.syncRegistry();
+  const evidence = engine.runtime.getEvidence(params.hash);
   if (!evidence) {
     return NextResponse.json({ error: "Evidence not found" }, { status: 404 });
   }

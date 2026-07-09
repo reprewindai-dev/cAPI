@@ -141,8 +141,14 @@ export async function translateOpenApiToMcp(
         capability_id: capabilityId,
         capability_name: toolName,
         description: tool.description,
+        provider_id: serverId,
         endpoint: proxyEndpoint,          // https:// → MCPBridge.callHTTP
+        input_schema: tool.inputSchema,
+        output_schema: { type: "object" },
+        public_key: "",
+        created_at: new Date().toISOString(),
         version: spec.info?.version ?? "1.0",
+        identity_proof: `openapi:${serverId}:${capabilityId}`,
         metadata: {
           category: "service",
           tags: [...(op.tags ?? []), "dynamic", serverId],
@@ -150,6 +156,8 @@ export async function translateOpenApiToMcp(
           requires_approval: false,
           audit_level: "standard",
           provider: serverId,
+          cost: "credits",
+          rate_limit: 60,
         },
       };
       engine.runtime.registerCapability(cap);
