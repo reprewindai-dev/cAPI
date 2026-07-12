@@ -1,9 +1,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use std::collections::BTreeMap;
 
 /// MCPAPI v2.0 Governance Specification
 pub const GOVERNANCE_SPEC: &str = "2.0.0";
+pub const TRUST_CONNECTION_CONTRACT_VERSION: &str = "veklom.trust_connection.v1";
+pub const CONNECTION_CONTEXT_CONTRACT_VERSION: &str = "veklom.connection_context.v1";
+pub const CONNECTION_REQUIREMENTS_CONTRACT_VERSION: &str = "veklom.connection_requirements.v1";
+pub const ROUTE_SNAPSHOT_CONTRACT_VERSION: &str = "veklom.connection.route_snapshot.v1";
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskLevel {
@@ -122,4 +127,449 @@ pub enum ElicitationStatus {
     Approved,
     Denied,
     TimedOut,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustConnectionStatus {
+    Planning,
+    Active,
+    Paused,
+    Revoked,
+    Failed,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionTransport {
+    Rest,
+    Mcp,
+    WebMcp,
+    Ui,
+    Internal,
+    Queue,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceMode {
+    Consequential,
+    Full,
+    PointerOnly,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureBehavior {
+    FailClosed,
+    FailOpenAsyncQueued,
+    DegradeToGeneric,
+    ReturnChallenge,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureClass {
+    Timeout,
+    ServiceDown,
+    SignatureInvalid,
+    CacheStale,
+    RequirementsResolutionFailed,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CappoSurface {
+    Edge,
+    Inside,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HandlerSelectionStrategy {
+    DeclaredPriority,
+    RegionThenPriority,
+    LowestObservedLatency,
+    Weighted,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ParticipantRef {
+    pub participant_type: String,
+    pub identity_ref: String,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionParticipants {
+    pub initiator: ParticipantRef,
+    pub counterparty: Option<ParticipantRef>,
+    pub agents: Vec<ParticipantRef>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionIdentity {
+    pub pgl_refs: Vec<String>,
+    pub assurance_level: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionProtocol {
+    pub detected: ConnectionTransport,
+    pub negotiated: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionPolicy {
+    pub profile_ref: String,
+    pub mode: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionSourceIntegrity {
+    pub repogate_attestation_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionExecution {
+    pub authority: String,
+    pub runtime: String,
+    pub cappo_surface: CappoSurface,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionPayment {
+    pub scheme: Option<String>,
+    pub required: bool,
+    pub settlement_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionEvidence {
+    pub pgl_receipt_refs: Vec<String>,
+    pub replay_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionRevocation {
+    pub revoked_at: String,
+    pub revoked_by: String,
+    pub reason: String,
+    pub receipt_ref: Option<String>,
+}
+
+/// Canonical product object. Backends may hold projections, but the connection
+/// fabric must preserve this connection id and lineage across every lane.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct TrustConnection {
+    pub contract_version: String,
+    pub connection_id: String,
+    pub version: String,
+    pub workspace_id: String,
+    pub status: TrustConnectionStatus,
+    pub participants: ConnectionParticipants,
+    pub identity: ConnectionIdentity,
+    pub capabilities: Vec<String>,
+    pub protocol: ConnectionProtocol,
+    pub policy: ConnectionPolicy,
+    pub source_integrity: ConnectionSourceIntegrity,
+    pub execution: ConnectionExecution,
+    pub payment: ConnectionPayment,
+    pub evidence: ConnectionEvidence,
+    pub created_at: String,
+    pub updated_at: String,
+    pub revocation: Option<ConnectionRevocation>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionContext {
+    pub contract_version: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub request_id: String,
+    pub workspace_id: String,
+    pub actor_id: String,
+    pub agent_id: Option<String>,
+    pub transport: ConnectionTransport,
+    pub protocol_version: Option<String>,
+    pub intent: String,
+    pub idempotency_key: String,
+    pub deadline_at: Option<String>,
+    pub trace_id: String,
+    pub traceparent: Option<String>,
+    pub tracestate: Option<String>,
+    pub service_identity_ref: Option<String>,
+    pub source_attestation_ref: Option<String>,
+    pub policy_profile_ref: Option<String>,
+    pub evidence_mode: EvidenceMode,
+}
+
+impl ConnectionContext {
+    pub fn required_id_fields_present(&self) -> bool {
+        !self.connection_id.is_empty()
+            && !self.operation_id.is_empty()
+            && !self.request_id.is_empty()
+            && !self.workspace_id.is_empty()
+            && !self.actor_id.is_empty()
+            && !self.intent.is_empty()
+            && !self.idempotency_key.is_empty()
+            && !self.trace_id.is_empty()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LaneRequirement {
+    pub lane: String,
+    pub scheme: String,
+    pub required: bool,
+    pub minimum_state: Option<String>,
+    pub assurance: Option<String>,
+    pub failure_behavior: FailureBehavior,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct PreLaneFailureRule {
+    pub intent: String,
+    pub failure_class: FailureClass,
+    pub behavior: FailureBehavior,
+    pub maximum_cache_ttl_seconds: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionRequirements {
+    pub contract_version: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub policy_version: String,
+    pub issued_at: String,
+    pub expires_at: Option<String>,
+    pub requirements_hash: String,
+    pub pre_lane_failure_rules: Vec<PreLaneFailureRule>,
+    pub lanes: Vec<LaneRequirement>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LaneFailurePolicy {
+    pub lane: String,
+    pub timeout: FailureBehavior,
+    pub service_down: FailureBehavior,
+    pub signature_invalid: FailureBehavior,
+    pub cache_stale: FailureBehavior,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LaneHandlerRegistration {
+    pub name: String,
+    pub version: String,
+    pub lane: String,
+    pub supported_intents: Vec<String>,
+    pub supported_schemes: Vec<String>,
+    pub selection_strategy: HandlerSelectionStrategy,
+    pub precedence: u32,
+    pub timeout_ms: u64,
+    pub assurance: String,
+    pub fail_policy: LaneFailurePolicy,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LaneRegistrySnapshot {
+    pub registry_version: String,
+    pub issued_at: String,
+    pub handlers: Vec<LaneHandlerRegistration>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RouteTarget {
+    pub resource: String,
+    pub tenant: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RouteEndpoint {
+    pub handler: String,
+    pub endpoint: String,
+    pub method: String,
+    pub region: Option<String>,
+    pub timeout_ms: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RouteIntegrity {
+    pub issuer: String,
+    pub format: String,
+    pub key_id: String,
+    pub signature: String,
+}
+
+/// Signed projection of authority-owned truths. It does not replace PGL,
+/// CAPPO, RepoGate, x402, Replay, or BYOS as native authorities.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RouteSnapshot {
+    pub snapshot_type: String,
+    pub version: String,
+    pub snapshot_id: String,
+    pub workspace_id: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub policy_version: String,
+    pub requirements_hash: String,
+    pub source: ParticipantRef,
+    pub target: RouteTarget,
+    pub route: RouteEndpoint,
+    pub requirements: BTreeMap<String, String>,
+    pub proof: BTreeMap<String, String>,
+    pub links: BTreeMap<String, String>,
+    pub integrity: RouteIntegrity,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HandlerDecision {
+    Verified,
+    Challenge,
+    Denied,
+    Deferred,
+    Error,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct HandlerResult {
+    pub handler: String,
+    pub lane: String,
+    pub decision: HandlerDecision,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub evidence_refs: Vec<String>,
+    pub retryable: bool,
+    pub error_code: Option<String>,
+    pub message: Option<String>,
+}
+
+#[cfg(test)]
+mod trust_connection_contract_tests {
+    use super::*;
+
+    #[test]
+    fn connection_context_keeps_canonical_ids_explicit() {
+        let context = ConnectionContext {
+            contract_version: CONNECTION_CONTEXT_CONTRACT_VERSION.to_string(),
+            connection_id: "tc_123".to_string(),
+            operation_id: "op_123".to_string(),
+            request_id: "req_123".to_string(),
+            workspace_id: "ws_123".to_string(),
+            actor_id: "pgl://human/operator".to_string(),
+            agent_id: Some("pgl://agent/procurement".to_string()),
+            transport: ConnectionTransport::Mcp,
+            protocol_version: Some("mcp/2026-01".to_string()),
+            intent: "agent.execute".to_string(),
+            idempotency_key: "idem_123".to_string(),
+            deadline_at: Some("2026-07-12T00:00:30Z".to_string()),
+            trace_id: "trace_123".to_string(),
+            traceparent: Some("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01".to_string()),
+            tracestate: None,
+            service_identity_ref: Some("spiffe://veklom.local/interlink-capi".to_string()),
+            source_attestation_ref: Some("rg_123".to_string()),
+            policy_profile_ref: Some("policy_123".to_string()),
+            evidence_mode: EvidenceMode::Consequential,
+        };
+
+        assert!(context.required_id_fields_present());
+        let json = serde_json::to_value(&context).expect("context serializes");
+        assert_eq!(json["connection_id"], "tc_123");
+        assert_eq!(json["operation_id"], "op_123");
+        assert_eq!(json["transport"], "mcp");
+        assert_eq!(json["service_identity_ref"], "spiffe://veklom.local/interlink-capi");
+    }
+
+    #[test]
+    fn route_snapshot_is_a_projection_not_a_native_authority() {
+        let mut requirements = BTreeMap::new();
+        requirements.insert("identity".to_string(), "pgl_verified".to_string());
+        requirements.insert("authorization".to_string(), "cappo_eat_v1".to_string());
+
+        let mut proof = BTreeMap::new();
+        proof.insert("execution_receipt".to_string(), "pgl_required".to_string());
+        proof.insert("source_attestation".to_string(), "repogate_required".to_string());
+
+        let mut links = BTreeMap::new();
+        links.insert("receipt_verify".to_string(), "/api/v1/pgl/receipts/verify".to_string());
+
+        let snapshot = RouteSnapshot {
+            snapshot_type: ROUTE_SNAPSHOT_CONTRACT_VERSION.to_string(),
+            version: "v1".to_string(),
+            snapshot_id: "rs_123".to_string(),
+            workspace_id: "ws_123".to_string(),
+            connection_id: "tc_123".to_string(),
+            operation_id: "op_123".to_string(),
+            issued_at: "2026-07-12T00:00:00Z".to_string(),
+            expires_at: "2026-07-12T00:00:30Z".to_string(),
+            policy_version: "pol_123".to_string(),
+            requirements_hash: "sha256:abc".to_string(),
+            source: ParticipantRef {
+                participant_type: "agent".to_string(),
+                identity_ref: "pgl://agent/procurement".to_string(),
+                display_name: Some("Procurement Agent".to_string()),
+            },
+            target: RouteTarget {
+                resource: "api://supplier-service".to_string(),
+                tenant: "ws_123".to_string(),
+                status: "available".to_string(),
+            },
+            route: RouteEndpoint {
+                handler: "cappo.exec".to_string(),
+                endpoint: "https://api.veklom.com/api/v1/cappo/exec".to_string(),
+                method: "POST".to_string(),
+                region: Some("us-east".to_string()),
+                timeout_ms: 3000,
+            },
+            requirements,
+            proof,
+            links,
+            integrity: RouteIntegrity {
+                issuer: "pgl://service/interlink-capi".to_string(),
+                format: "jws".to_string(),
+                key_id: "did:web:api.veklom.com#connection-key-1".to_string(),
+                signature: "sig".to_string(),
+            },
+        };
+
+        let json = serde_json::to_value(&snapshot).expect("snapshot serializes");
+        assert_eq!(json["snapshot_type"], ROUTE_SNAPSHOT_CONTRACT_VERSION);
+        assert_eq!(json["requirements"]["authorization"], "cappo_eat_v1");
+        assert_eq!(json["proof"]["source_attestation"], "repogate_required");
+    }
+
+    #[test]
+    fn requirements_declare_prelane_and_lane_failure_behavior() {
+        let requirements = ConnectionRequirements {
+            contract_version: CONNECTION_REQUIREMENTS_CONTRACT_VERSION.to_string(),
+            connection_id: "tc_123".to_string(),
+            operation_id: "op_123".to_string(),
+            policy_version: "pol_123".to_string(),
+            issued_at: "2026-07-12T00:00:00Z".to_string(),
+            expires_at: Some("2026-07-12T00:00:30Z".to_string()),
+            requirements_hash: "sha256:requirements".to_string(),
+            pre_lane_failure_rules: vec![PreLaneFailureRule {
+                intent: "agent.execute".to_string(),
+                failure_class: FailureClass::RequirementsResolutionFailed,
+                behavior: FailureBehavior::FailClosed,
+                maximum_cache_ttl_seconds: Some(30),
+            }],
+            lanes: vec![LaneRequirement {
+                lane: "governance".to_string(),
+                scheme: "cappo_eat_v1".to_string(),
+                required: true,
+                minimum_state: Some("authorized".to_string()),
+                assurance: Some("verified".to_string()),
+                failure_behavior: FailureBehavior::FailClosed,
+            }],
+        };
+
+        let json = serde_json::to_value(&requirements).expect("requirements serialize");
+        assert_eq!(json["pre_lane_failure_rules"][0]["behavior"], "fail_closed");
+        assert_eq!(json["lanes"][0]["failure_behavior"], "fail_closed");
+    }
 }
