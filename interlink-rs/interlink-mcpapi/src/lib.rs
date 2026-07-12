@@ -9,6 +9,13 @@ pub const TRUST_CONNECTION_CONTRACT_VERSION: &str = "veklom.trust_connection.v1"
 pub const CONNECTION_CONTEXT_CONTRACT_VERSION: &str = "veklom.connection_context.v1";
 pub const CONNECTION_REQUIREMENTS_CONTRACT_VERSION: &str = "veklom.connection_requirements.v1";
 pub const ROUTE_SNAPSHOT_CONTRACT_VERSION: &str = "veklom.connection.route_snapshot.v1";
+pub const AMPHOTERIC_CONTEXT_CONTRACT_VERSION: &str = "veklom.amphoteric_context.v1";
+pub const EXECUTION_IDENTITY_CONTRACT_VERSION: &str = "veklom.execution_identity.v1";
+pub const EXECUTION_AUTHORIZATION_CONTRACT_VERSION: &str = "veklom.execution_authorization.v1";
+pub const SOURCE_ATTESTATION_CONTRACT_VERSION: &str = "veklom.source_attestation.v1";
+pub const PGL_RECEIPT_CONTRACT_VERSION: &str = "veklom.pgl_receipt.v1";
+pub const REPLAY_PACKET_CONTRACT_VERSION: &str = "veklom.replay_packet.v1";
+pub const ERROR_ENVELOPE_CONTRACT_VERSION: &str = "veklom.error_envelope.v1";
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskLevel {
@@ -194,6 +201,33 @@ pub enum HandlerSelectionStrategy {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AttestationState {
+    Pending,
+    Approved,
+    Rejected,
+    Revoked,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplayPacketState {
+    Queued,
+    Assembling,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorSeverity {
+    Info,
+    Warning,
+    Error,
+    Critical,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ParticipantRef {
     pub participant_type: String,
     pub identity_ref: String,
@@ -315,6 +349,20 @@ impl ConnectionContext {
             && !self.idempotency_key.is_empty()
             && !self.trace_id.is_empty()
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct AmphotericContext {
+    pub contract_version: String,
+    pub detected_transport: ConnectionTransport,
+    pub detected_participant_type: String,
+    pub protocol_version: Option<String>,
+    pub accepted_response_envelopes: Vec<String>,
+    pub requested_capabilities: Vec<String>,
+    pub user_agent: Option<String>,
+    pub authenticated_identity_ref: Option<String>,
+    pub service_identity_ref: Option<String>,
+    pub spoofing_warnings: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -448,6 +496,151 @@ pub struct HandlerResult {
     pub message: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ExecutionIdentity {
+    pub contract_version: String,
+    pub execution_id: String,
+    pub workspace_id: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub subject_identity_ref: String,
+    pub agent_id: Option<String>,
+    pub genome_hash: Option<String>,
+    pub source_attestation_ref: Option<String>,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub issuer: String,
+    pub key_id: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ExecutionAuthorization {
+    pub contract_version: String,
+    pub authorization_id: String,
+    pub execution_id: String,
+    pub workspace_id: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub audience: String,
+    pub subject_identity_ref: String,
+    pub target_resource: String,
+    pub capability: String,
+    pub method: String,
+    pub policy_version: String,
+    pub source_attestation_digest: Option<String>,
+    pub maximum_side_effects: BTreeMap<String, String>,
+    pub issued_at: String,
+    pub not_before: String,
+    pub expires_at: String,
+    pub nonce: String,
+    pub single_use: bool,
+    pub issuer: String,
+    pub key_id: String,
+    pub signature: String,
+}
+
+impl ExecutionAuthorization {
+    pub fn is_sensitive_single_use(&self) -> bool {
+        self.single_use
+            || self.method.eq_ignore_ascii_case("delete")
+            || self.method.eq_ignore_ascii_case("deploy")
+            || self.maximum_side_effects.contains_key("payment")
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct SourceAttestation {
+    pub contract_version: String,
+    pub attestation_id: String,
+    pub workspace_id: String,
+    pub repository: String,
+    pub commit_sha: String,
+    pub branch_or_tag: Option<String>,
+    pub build_artifact_digest: Option<String>,
+    pub container_digest: Option<String>,
+    pub policy_findings: Vec<String>,
+    pub approval_state: AttestationState,
+    pub human_approvals: Vec<String>,
+    pub scan_version: String,
+    pub slsa_level: Option<String>,
+    pub dsse_envelope_ref: Option<String>,
+    pub issued_at: String,
+    pub attestation_hash: String,
+    pub verification_endpoint: String,
+    pub issuer: String,
+    pub key_id: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct PglReceipt {
+    pub contract_version: String,
+    pub receipt_id: String,
+    pub workspace_id: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub execution_id: Option<String>,
+    pub subject_identity_ref: String,
+    pub native_evidence_refs: Vec<String>,
+    pub result_hash: Option<String>,
+    pub previous_receipt_hash: Option<String>,
+    pub receipt_hash: String,
+    pub issued_at: String,
+    pub issuer: String,
+    pub key_id: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ReplaySegmentRef {
+    pub segment_id: String,
+    pub content_hash: String,
+    pub event_count: u64,
+    pub starts_at: String,
+    pub ends_at: String,
+    pub retrieval_uri: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ReplayPacket {
+    pub contract_version: String,
+    pub replay_id: String,
+    pub workspace_id: String,
+    pub connection_id: String,
+    pub operation_id: String,
+    pub state: ReplayPacketState,
+    pub summary_hash: String,
+    pub pgl_receipt_refs: Vec<String>,
+    pub cappo_decision_refs: Vec<String>,
+    pub repogate_attestation_refs: Vec<String>,
+    pub settlement_refs: Vec<String>,
+    pub segments: Vec<ReplaySegmentRef>,
+    pub verification_endpoint: String,
+    pub cursor: Option<String>,
+    pub issued_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ErrorEnvelope {
+    pub contract_version: String,
+    pub error_id: String,
+    pub workspace_id: Option<String>,
+    pub connection_id: Option<String>,
+    pub operation_id: Option<String>,
+    pub request_id: Option<String>,
+    pub trace_id: Option<String>,
+    pub lane: Option<String>,
+    pub handler: Option<String>,
+    pub code: String,
+    pub severity: ErrorSeverity,
+    pub message: String,
+    pub retryable: bool,
+    pub fail_behavior: FailureBehavior,
+    pub evidence_ref: Option<String>,
+    pub occurred_at: String,
+}
+
 #[cfg(test)]
 mod trust_connection_contract_tests {
     use super::*;
@@ -571,5 +764,74 @@ mod trust_connection_contract_tests {
         let json = serde_json::to_value(&requirements).expect("requirements serialize");
         assert_eq!(json["pre_lane_failure_rules"][0]["behavior"], "fail_closed");
         assert_eq!(json["lanes"][0]["failure_behavior"], "fail_closed");
+    }
+
+    #[test]
+    fn execution_authorization_binds_operation_and_side_effect_scope() {
+        let mut maximum_side_effects = BTreeMap::new();
+        maximum_side_effects.insert("payment".to_string(), "1000000:USDC_BASE".to_string());
+
+        let authorization = ExecutionAuthorization {
+            contract_version: EXECUTION_AUTHORIZATION_CONTRACT_VERSION.to_string(),
+            authorization_id: "eat_123".to_string(),
+            execution_id: "exec_123".to_string(),
+            workspace_id: "ws_123".to_string(),
+            connection_id: "tc_123".to_string(),
+            operation_id: "op_123".to_string(),
+            audience: "byos.runtime".to_string(),
+            subject_identity_ref: "pgl://agent/procurement".to_string(),
+            target_resource: "api://supplier-service".to_string(),
+            capability: "purchase.propose".to_string(),
+            method: "post".to_string(),
+            policy_version: "pol_123".to_string(),
+            source_attestation_digest: Some("sha256:source".to_string()),
+            maximum_side_effects,
+            issued_at: "2026-07-12T00:00:00Z".to_string(),
+            not_before: "2026-07-12T00:00:00Z".to_string(),
+            expires_at: "2026-07-12T00:00:30Z".to_string(),
+            nonce: "nonce_123".to_string(),
+            single_use: false,
+            issuer: "did:web:cappo.veklom.com".to_string(),
+            key_id: "did:web:cappo.veklom.com#eat-key-1".to_string(),
+            signature: "sig".to_string(),
+        };
+
+        assert!(authorization.is_sensitive_single_use());
+        let json = serde_json::to_value(&authorization).expect("authorization serializes");
+        assert_eq!(json["connection_id"], "tc_123");
+        assert_eq!(json["operation_id"], "op_123");
+        assert_eq!(json["maximum_side_effects"]["payment"], "1000000:USDC_BASE");
+    }
+
+    #[test]
+    fn replay_packet_is_pointer_first_and_segment_addressable() {
+        let packet = ReplayPacket {
+            contract_version: REPLAY_PACKET_CONTRACT_VERSION.to_string(),
+            replay_id: "replay_123".to_string(),
+            workspace_id: "ws_123".to_string(),
+            connection_id: "tc_123".to_string(),
+            operation_id: "op_123".to_string(),
+            state: ReplayPacketState::Ready,
+            summary_hash: "sha256:summary".to_string(),
+            pgl_receipt_refs: vec!["pgl_receipt_123".to_string()],
+            cappo_decision_refs: vec!["cappo_attestation_123".to_string()],
+            repogate_attestation_refs: vec!["rg_123".to_string()],
+            settlement_refs: vec!["x402_settlement_123".to_string()],
+            segments: vec![ReplaySegmentRef {
+                segment_id: "segment_1".to_string(),
+                content_hash: "sha256:segment".to_string(),
+                event_count: 12,
+                starts_at: "2026-07-12T00:00:00Z".to_string(),
+                ends_at: "2026-07-12T00:00:01Z".to_string(),
+                retrieval_uri: "/api/v1/replay/replay_123/segments/segment_1".to_string(),
+            }],
+            verification_endpoint: "/api/v1/replay/replay_123/verify".to_string(),
+            cursor: Some("cursor_123".to_string()),
+            issued_at: "2026-07-12T00:00:02Z".to_string(),
+        };
+
+        let json = serde_json::to_value(&packet).expect("packet serializes");
+        assert_eq!(json["segments"][0]["content_hash"], "sha256:segment");
+        assert_eq!(json["verification_endpoint"], "/api/v1/replay/replay_123/verify");
     }
 }
