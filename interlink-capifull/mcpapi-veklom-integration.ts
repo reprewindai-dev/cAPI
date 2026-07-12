@@ -255,14 +255,14 @@ export class VeklomMCPAPIIntegration {
 
   // ========== PGL INTEGRATION ==========
 
-  registerToPGL(
+  async registerToPGL(
     agent_id: string,
     capability_id: string,
     action: string,
     method: "mcp" | "http" | "local",
     result: "success" | "denied" | "error",
     evidence_hash: string
-  ): string {
+  ): Promise<string> {
     const agent = this.veklomAgents.get(agent_id);
     if (!agent) {
       return "";
@@ -278,9 +278,40 @@ export class VeklomMCPAPIIntegration {
       birth_certificate: this.generateBirthCertificate(agent),
     };
 
-    // Generate immutable hash
+    // Keep local copy for in-memory reads
     const entryHash = this.hashPGLEntry(pglEntry);
     this.pglLedger.set(entryHash, pglEntry);
+
+    // POST to live gnomledger
+    const pglBaseUrl = process.env.PGL_API_URL || "https://api.veklom.com";
+    const apiKey = process.env.PGL_API_KEY || "";
+    
+    // Map VeklomPGLEntry to LedgerEventCreate schema
+    const payload = {
+      agent_id: agent_id,
+      event_type: "custom", // generic action
+      actor: agent.owner_id || "system",
+      summary: `PGL execution: ${action} on ${capability_id}`,
+      details: pglEntry,
+      idempotency_key: entryHash,
+    };
+
+    try {
+      const response = await fetch(`${pglBaseUrl}/api/v1/ledger/events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error(`PGL sync failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (e) {
+      console.error(`PGL sync error:`, e);
+    }
 
     return entryHash;
   }
