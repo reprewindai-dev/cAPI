@@ -1,0 +1,13 @@
+# capability: connection.capabilities.read | lane: 1 | version: 1.0.0
+query ConnectionCapabilities($connectionId: ID!) {
+  connectionCapabilities(connectionId: $connectionId) {
+    grantId
+    capabilityId
+    capabilityVersion
+    lane
+    grantedAt
+    expiresAt
+    revokedAt
+    constraints
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionCapabilityTokenV1.schema.json",
+  "title": "ConnectionCapabilityTokenV1",
+  "description": "A short-lived, signed capability token (EAT-style) presented per invocation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token_id",
+    "connection_id",
+    "grant_id",
+    "capability_id",
+    "subject_identity_id",
+    "issued_at",
+    "expires_at",
+    "nonce",
+    "key_id",
+    "signature"
+  ],
+  "properties": {
+    "token_id": {
+      "type": "string"
+    },
+    "connection_id": {
+      "type": "string"
+    },
+    "grant_id": {
+      "type": "string"
+    },
+    "capability_id": {
+      "type": "string"
+    },
+    "subject_identity_id": {
+      "type": "string"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nonce": {
+      "type": "string"
+    },
+    "key_id": {
+      "type": "string"
+    },
+    "signature": {
+      "type": "string"
+    }
+  }
+}

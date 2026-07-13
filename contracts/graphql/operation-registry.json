@@ -1,0 +1,75 @@
+{
+  "registry_version": "1.0.0",
+  "operations": [
+    {
+      "operation_name": "ConnectionCapabilities",
+      "operation_file": "ConnectionCapabilities.graphql",
+      "capability_id": "connection.capabilities.read",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "operation_hash": "sha256:f7cd313607e30c9e758b409b045cd2a635ae66417f28ef7aeb087b481fb3f390",
+      "lane": 1,
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_grants": [
+        "connection.capabilities.read"
+      ]
+    },
+    {
+      "operation_name": "ConnectionExecutionHistory",
+      "operation_file": "ConnectionExecutionHistory.graphql",
+      "capability_id": "connection.execution_history.read",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "operation_hash": "sha256:f16609575e888606695247c24490b7ba3c12febe10c58347a39561e94f7a20be",
+      "lane": 1,
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_grants": [
+        "connection.execution_history.read"
+      ]
+    },
+    {
+      "operation_name": "ConnectionGet",
+      "operation_file": "ConnectionGet.graphql",
+      "capability_id": "connection.get",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "operation_hash": "sha256:be8fba5f5cefcc9ee9223d960a72572780f8a339996948f3362dbd941bdee26e",
+      "lane": 1,
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_grants": [
+        "connection.get"
+      ]
+    },
+    {
+      "operation_name": "InvokeExternalApi",
+      "operation_file": "InvokeExternalApi.graphql",
+      "capability_id": "connection.external_api.invoke",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "operation_hash": "sha256:e5d3b5a410951ca7746678c427349b06179a24096bd835763615bdcc0a2a832a",
+      "lane": 3,
+      "maximum_depth": 6,
+      "maximum_cost": 300,
+      "required_grants": [
+        "connection.external_api.invoke"
+      ]
+    },
+    {
+      "operation_name": "ProposeConnection",
+      "operation_file": "ProposeConnection.graphql",
+      "capability_id": "connection.proposal.create",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "operation_hash": "sha256:11c563a3de3652e7aaf2192565dec62455006f115c02ed4b573e847bef49925d",
+      "lane": 2,
+      "maximum_depth": 5,
+      "maximum_cost": 150,
+      "required_grants": [
+        "connection.proposal.create"
+      ]
+    }
+  ]
+}

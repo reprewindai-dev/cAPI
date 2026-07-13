@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/MeasurementReferenceV1.schema.json",
+  "title": "MeasurementReferenceV1",
+  "description": "Reference to a VNP measurement record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "measurement_id",
+    "window_id",
+    "recorded_at"
+  ],
+  "properties": {
+    "measurement_id": {
+      "type": "string"
+    },
+    "window_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

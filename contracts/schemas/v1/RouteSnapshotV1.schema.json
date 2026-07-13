@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/RouteSnapshotV1.schema.json",
+  "title": "RouteSnapshotV1",
+  "description": "Frozen route resolution used for an execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "route_snapshot_id",
+    "resolved_at",
+    "candidate_count",
+    "ttl_seconds"
+  ],
+  "properties": {
+    "route_snapshot_id": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "candidate_count": {
+      "type": "integer"
+    },
+    "ttl_seconds": {
+      "type": "integer"
+    }
+  }
+}

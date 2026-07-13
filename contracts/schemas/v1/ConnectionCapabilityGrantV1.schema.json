@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionCapabilityGrantV1.schema.json",
+  "title": "ConnectionCapabilityGrantV1",
+  "description": "A capability granted to a connection, pinned to a lane.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grant_id",
+    "connection_id",
+    "capability_id",
+    "capability_version",
+    "lane",
+    "granted_at",
+    "expires_at",
+    "revoked_at",
+    "constraints"
+  ],
+  "properties": {
+    "grant_id": {
+      "type": "string"
+    },
+    "connection_id": {
+      "type": "string"
+    },
+    "capability_id": {
+      "type": "string"
+    },
+    "capability_version": {
+      "type": "string"
+    },
+    "lane": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "granted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "revoked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "constraints": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

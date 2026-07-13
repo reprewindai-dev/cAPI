@@ -1,0 +1,21 @@
+# capability: connection.get | lane: 1 | version: 1.0.0
+query ConnectionGet($id: ID!) {
+  connection(id: $id) {
+    id
+    version
+    workspaceId
+    state
+    schemaVersion
+    policyVersion
+    participants {
+      participantId
+      identityId
+      role
+      displayName
+      publicKeyId
+    }
+    createdAt
+    updatedAt
+    terminatedAt
+  }
+}

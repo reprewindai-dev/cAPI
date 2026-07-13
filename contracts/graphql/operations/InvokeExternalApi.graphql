@@ -1,0 +1,35 @@
+# capability: connection.external_api.invoke | lane: 3 | version: 1.0.0
+mutation InvokeExternalApi($input: CapabilityInvocationInput!) {
+  invokeCapability(input: $input) {
+    executionId
+    operationId
+    attemptId
+    lane
+    state
+    resultHash
+    result
+    receipts {
+      id
+      kind
+      pgl {
+        receiptId
+        ledger
+        entryHash
+        anchoredAt
+      }
+      settlement {
+        settlementId
+        amountMinor
+        currency
+        network
+        txHash
+        settledAt
+      }
+      measurement {
+        measurementId
+        windowId
+        recordedAt
+      }
+    }
+  }
+}

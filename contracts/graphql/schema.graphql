@@ -1,0 +1,301 @@
+"""
+Veklom Trust Connection GraphQL Schema — v1.0.0
+
+Canonical, capability-centric schema for the Veklom governed unified-call
+system. This SDL is owned by the cAPI repository. Servers (veklom-byos-backend)
+mount it via Strawberry GraphQL at POST /api/v1/graphql; SDKs (veklom-sdk) are
+generated from it.
+
+Compatibility rules:
+- Minor versions may ADD types, fields, enum values, and operations.
+- Minor versions may NEVER remove or retype existing fields.
+- Any breaking change requires a new major schema version and new
+  connection-pinned schema_version values.
+- Money is always integer minor units (e.g. USDC micro-units). No floats.
+"""
+
+scalar DateTime
+scalar JSON
+
+enum ConnectionState {
+  PROPOSED
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum ExecutionLane {
+  LANE_1_DIRECT_GOVERNED_READ
+  LANE_2_BOUNDED_DETERMINISTIC_WRITE
+  LANE_3_CONSEQUENTIAL_SIDE_EFFECT
+}
+
+enum ExecutionState {
+  PENDING
+  AWAITING_APPROVAL
+  AUTHORIZED
+  EXECUTING
+  COMPLETED
+  FAILED
+  DENIED
+}
+
+enum VerificationOutcome {
+  VERIFIED
+  MISMATCH
+  NOT_FOUND
+  EXPIRED
+  INSUFFICIENT_EVIDENCE
+}
+
+enum ConnectionEventType {
+  CONNECTION_PROPOSED
+  CONNECTION_ACTIVATED
+  CAPABILITY_GRANTED
+  CAPABILITY_REVOKED
+  EXECUTION_REQUESTED
+  EXECUTION_APPROVED
+  EXECUTION_COMPLETED
+  EXECUTION_FAILED
+  RECEIPT_ISSUED
+  MEASUREMENT_RECORDED
+  SETTLEMENT_RECORDED
+  CONNECTION_TERMINATED
+}
+
+type ConnectionParticipant {
+  participantId: ID!
+  identityId: ID!
+  role: String!
+  displayName: String
+  publicKeyId: String
+}
+
+type CapabilityGrant {
+  grantId: ID!
+  capabilityId: String!
+  capabilityVersion: String!
+  lane: ExecutionLane!
+  grantedAt: DateTime!
+  expiresAt: DateTime
+  revokedAt: DateTime
+  constraints: JSON
+}
+
+type TrustConnection {
+  id: ID!
+  version: String!
+  workspaceId: ID!
+  state: ConnectionState!
+  schemaVersion: String!
+  policyVersion: String!
+  participants: [ConnectionParticipant!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  terminatedAt: DateTime
+}
+
+type ExecutionIdentity {
+  identityId: ID!
+  principalId: ID!
+  delegationChain: [ID!]!
+}
+
+type RouteSnapshot {
+  routeSnapshotId: ID!
+  resolvedAt: DateTime!
+  candidateCount: Int!
+  ttlSeconds: Int!
+}
+
+type PGLReceiptReference {
+  receiptId: ID!
+  ledger: String!
+  entryHash: String!
+  anchoredAt: DateTime
+}
+
+type MeasurementReference {
+  measurementId: ID!
+  windowId: ID
+  recordedAt: DateTime!
+}
+
+type SettlementReference {
+  settlementId: ID!
+  amountMinor: Int!
+  currency: String!
+  network: String
+  txHash: String
+  settledAt: DateTime
+}
+
+type ApprovalReceipt {
+  approvalId: ID!
+  executionId: ID!
+  approverIdentityId: ID!
+  approvedAt: DateTime!
+  signatureKeyId: String!
+}
+
+type ReceiptReference {
+  id: ID!
+  kind: String!
+  pgl: PGLReceiptReference
+  settlement: SettlementReference
+  measurement: MeasurementReference
+}
+
+type Execution {
+  id: ID!
+  connectionId: ID!
+  operationId: ID!
+  attemptId: ID!
+  capabilityId: String!
+  capabilityVersion: String!
+  lane: ExecutionLane!
+  state: ExecutionState!
+  identity: ExecutionIdentity!
+  routeSnapshot: RouteSnapshot
+  requestedAt: DateTime!
+  completedAt: DateTime
+  resultHash: String
+  receipts: [ReceiptReference!]!
+  errorCode: String
+}
+
+type ConnectionEvent {
+  eventId: ID!
+  connectionId: ID!
+  eventType: ConnectionEventType!
+  occurredAt: DateTime!
+  operationId: ID
+  executionId: ID
+  payload: JSON
+  cursor: String!
+}
+
+type ConnectionTimeline {
+  events: [ConnectionEvent!]!
+  nextCursor: String
+}
+
+type MeasurementSummary {
+  connectionId: ID!
+  windowCount: Int!
+  observationCount: Int!
+  lastObservationAt: DateTime
+  operationalState: String!
+}
+
+type SettlementSummary {
+  connectionId: ID!
+  settlementCount: Int!
+  totalAmountMinor: Int!
+  currency: String!
+  lastSettlementAt: DateTime
+}
+
+type ConnectionProposalResult {
+  connectionId: ID!
+  state: ConnectionState!
+  proposedAt: DateTime!
+  receipt: ReceiptReference
+}
+
+type CapabilityInvocationResult {
+  executionId: ID!
+  operationId: ID!
+  attemptId: ID!
+  lane: ExecutionLane!
+  state: ExecutionState!
+  resultHash: String
+  result: JSON
+  receipts: [ReceiptReference!]!
+}
+
+type ApprovalResult {
+  approvalId: ID!
+  executionId: ID!
+  state: ExecutionState!
+  receipt: ReceiptReference
+}
+
+type TerminationResult {
+  connectionId: ID!
+  state: ConnectionState!
+  terminatedAt: DateTime!
+  receipt: ReceiptReference
+}
+
+type VerificationResult {
+  receiptId: ID!
+  outcome: VerificationOutcome!
+  verifiedAt: DateTime!
+  evidenceHash: String
+  detail: String
+}
+
+input ConnectionProposalInput {
+  workspaceId: ID!
+  counterpartyIdentityId: ID!
+  requestedCapabilityIds: [String!]!
+  policyVersion: String!
+  idempotencyKey: String!
+  nonce: String!
+}
+
+input CapabilityInvocationInput {
+  connectionId: ID!
+  connectionVersion: String!
+  capabilityId: String!
+  capabilityVersion: String!
+  operationId: ID!
+  attemptId: ID!
+  targetResource: String!
+  arguments: JSON
+  idempotencyKey: String!
+  nonce: String!
+  traceId: String
+}
+
+input ApprovalInput {
+  executionId: ID!
+  decision: String!
+  idempotencyKey: String!
+  nonce: String!
+}
+
+input TerminateConnectionInput {
+  connectionId: ID!
+  reason: String
+  idempotencyKey: String!
+  nonce: String!
+}
+
+input VerifyReceiptInput {
+  receiptId: ID!
+  expectedHash: String
+}
+
+type Query {
+  connection(id: ID!): TrustConnection
+  connectionCapabilities(connectionId: ID!): [CapabilityGrant!]!
+  connectionTimeline(connectionId: ID!, cursor: String): ConnectionTimeline!
+  execution(id: ID!): Execution
+  receipt(id: ID!): ReceiptReference
+  measurements(connectionId: ID!): MeasurementSummary
+  settlements(connectionId: ID!): SettlementSummary
+}
+
+type Mutation {
+  proposeConnection(input: ConnectionProposalInput!): ConnectionProposalResult!
+  invokeCapability(input: CapabilityInvocationInput!): CapabilityInvocationResult!
+  approveExecution(input: ApprovalInput!): ApprovalResult!
+  terminateConnection(input: TerminateConnectionInput!): TerminationResult!
+  verifyReceipt(input: VerifyReceiptInput!): VerificationResult!
+}
+
+type Subscription {
+  connectionEvents(connectionId: ID!, after: String): ConnectionEvent!
+}
