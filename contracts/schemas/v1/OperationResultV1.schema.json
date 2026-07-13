@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/OperationResultV1.schema.json",
+  "title": "OperationResultV1",
+  "description": "Typed result of a governed operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation_id",
+    "attempt_id",
+    "execution_id",
+    "state",
+    "lane",
+    "result_hash",
+    "error_code",
+    "receipts",
+    "completed_at"
+  ],
+  "properties": {
+    "operation_id": {
+      "type": "string"
+    },
+    "attempt_id": {
+      "type": "string"
+    },
+    "execution_id": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "validating",
+        "held",
+        "authorized",
+        "executing",
+        "waiting_event",
+        "waiting_payment",
+        "attesting",
+        "settling",
+        "sealed",
+        "failed",
+        "quarantined",
+        "cancelled",
+        "compensating"
+      ]
+    },
+    "lane": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "result_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "PGLReceiptReferenceV1.schema.json"
+      }
+    },
+    "completed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

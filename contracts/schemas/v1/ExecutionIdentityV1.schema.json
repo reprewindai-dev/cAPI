@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ExecutionIdentityV1.schema.json",
+  "title": "ExecutionIdentityV1",
+  "description": "Verified identity under which an operation executes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "identity_id",
+    "principal_id",
+    "delegation_chain"
+  ],
+  "properties": {
+    "identity_id": {
+      "type": "string"
+    },
+    "principal_id": {
+      "type": "string"
+    },
+    "delegation_chain": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

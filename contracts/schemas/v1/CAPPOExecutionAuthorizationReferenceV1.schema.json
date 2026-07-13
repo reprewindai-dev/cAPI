@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/CAPPOExecutionAuthorizationReferenceV1.schema.json",
+  "title": "CAPPOExecutionAuthorizationReferenceV1",
+  "description": "Only CAPPO may issue the exact-operation execution authorization token used for consequential Lane 3 execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authorization_id",
+    "execution_id",
+    "operation_hash",
+    "issued_by"
+  ],
+  "properties": {
+    "authorization_id": {
+      "type": "string"
+    },
+    "execution_id": {
+      "type": "string"
+    },
+    "operation_hash": {
+      "type": "string"
+    },
+    "issued_by": {
+      "type": "string"
+    }
+  }
+}

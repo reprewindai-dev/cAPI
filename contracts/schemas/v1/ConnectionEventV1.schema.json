@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionEventV1.schema.json",
+  "title": "ConnectionEventV1",
+  "description": "Ordered event on a connection timeline / subscription stream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "connection_id",
+    "event_type",
+    "occurred_at",
+    "operation_id",
+    "execution_id",
+    "payload",
+    "cursor"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "connection_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "connection_proposed",
+        "connection_activated",
+        "capability_granted",
+        "capability_revoked",
+        "execution_requested",
+        "execution_approved",
+        "execution_completed",
+        "execution_failed",
+        "receipt_issued",
+        "measurement_recorded",
+        "settlement_recorded",
+        "connection_terminated"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "execution_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "payload": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "cursor": {
+      "type": "string"
+    }
+  }
+}

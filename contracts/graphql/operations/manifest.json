@@ -1,0 +1,64 @@
+{
+  "operations": [
+    {
+      "operation_name": "ConnectionCapabilities",
+      "operation_file": "ConnectionCapabilities.graphql",
+      "capability_id": "connection.capabilities.read",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "lane": 1,
+      "required_grants": ["connection.capabilities.read"],
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_authority": "WORKSPACE"
+    },
+    {
+      "operation_name": "ConnectionExecutionHistory",
+      "operation_file": "ConnectionExecutionHistory.graphql",
+      "capability_id": "connection.execution.history.read",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "lane": 1,
+      "required_grants": ["connection.execution.history.read"],
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_authority": "WORKSPACE"
+    },
+    {
+      "operation_name": "ConnectionGet",
+      "operation_file": "ConnectionGet.graphql",
+      "capability_id": "connection.read",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "lane": 1,
+      "required_grants": ["connection.read"],
+      "maximum_depth": 5,
+      "maximum_cost": 100,
+      "required_authority": "WORKSPACE"
+    },
+    {
+      "operation_name": "InvokeExternalApi",
+      "operation_file": "InvokeExternalApi.graphql",
+      "capability_id": "connection.external_api.invoke",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "lane": 3,
+      "required_grants": ["connection.external_api.invoke"],
+      "maximum_depth": 6,
+      "maximum_cost": 300,
+      "required_authority": "CAPPO"
+    },
+    {
+      "operation_name": "ProposeConnection",
+      "operation_file": "ProposeConnection.graphql",
+      "capability_id": "connection.propose",
+      "operation_version": "1.0.0",
+      "schema_version": "1.0.0",
+      "lane": 2,
+      "required_grants": ["connection.propose"],
+      "maximum_depth": 5,
+      "maximum_cost": 150,
+      "required_authority": "WORKSPACE"
+    }
+  ]
+}

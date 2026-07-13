@@ -1,0 +1,18 @@
+# capability: connection.proposal.create | lane: 2 | version: 1.0.0
+mutation ProposeConnection($input: ConnectionProposalInput!) {
+  proposeConnection(input: $input) {
+    connectionId
+    state
+    proposedAt
+    receipt {
+      id
+      kind
+      pgl {
+        receiptId
+        ledger
+        entryHash
+        anchoredAt
+      }
+    }
+  }
+}

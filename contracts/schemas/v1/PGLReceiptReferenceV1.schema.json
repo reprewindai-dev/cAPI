@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/PGLReceiptReferenceV1.schema.json",
+  "title": "PGLReceiptReferenceV1",
+  "description": "Reference to a PGL evidence-chain entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "ledger",
+    "entry_hash",
+    "anchored_at"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string"
+    },
+    "ledger": {
+      "type": "string"
+    },
+    "entry_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "anchored_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

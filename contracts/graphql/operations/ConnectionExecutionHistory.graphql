@@ -1,0 +1,16 @@
+# capability: connection.execution_history.read | lane: 1 | version: 1.0.0
+query ConnectionExecutionHistory($connectionId: ID!, $cursor: String) {
+  connectionTimeline(connectionId: $connectionId, cursor: $cursor) {
+    events {
+      eventId
+      connectionId
+      eventType
+      occurredAt
+      operationId
+      executionId
+      payload
+      cursor
+    }
+    nextCursor
+  }
+}
