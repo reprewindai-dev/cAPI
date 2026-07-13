@@ -1,0 +1,39 @@
+{
+  "version": "2026-07-13",
+  "repository": "reprewindai-dev/cAPI",
+  "authority_role": "interlink_amphoteric_fabric_gateway",
+  "owns": [
+    "capability_discovery",
+    "openapi_to_mcp_translation",
+    "intent_classification",
+    "capability_negotiation",
+    "capability_graph_coordination",
+    "amphoteric_protocol_presentation"
+  ],
+  "does_not_own": [
+    "persistent_capability_truth",
+    "trust_connection_aggregate",
+    "final_consequential_execution_authority",
+    "physical_measurement_truth",
+    "settlement_finality"
+  ],
+  "status_namespaces": [
+    "readiness_status",
+    "connection_state",
+    "execution_state",
+    "policy_decision",
+    "measurement_state",
+    "settlement_stage",
+    "verification_result"
+  ],
+  "capability_lanes": {
+    "lane_1": "Routes persisted read operations to BYOS-owned state.",
+    "lane_2": "Routes bounded deterministic writes to BYOS-owned state and outbox.",
+    "lane_3": "Coordinates consequential requests and forwards to CAPPO for final authorization."
+  },
+  "deployment": {
+    "provider": "Hetzner",
+    "orchestrator": "Coolify",
+    "allowed_nodes": ["us-ashburn", "us-hillsboro", "de-nuremberg", "de-falkenstein", "sg-singapore"]
+  }
+}
