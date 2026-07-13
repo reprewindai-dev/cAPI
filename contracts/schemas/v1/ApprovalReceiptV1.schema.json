@@ -2,50 +2,76 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/ApprovalReceiptV1.schema.json",
   "title": "ApprovalReceiptV1",
-  "description": "Cryptographic proof that an authorized persona explicitly approved a held execution.",
+  "description": "Signed record of a human/agent approval decision.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "approval_id",
+    "connection_id",
+    "connection_version",
     "execution_id",
-    "approver_identity_id",
+    "operation_id",
+    "operation_hash",
+    "approver_identity",
+    "approval_decision",
+    "approval_scope",
     "approved_at",
-    "signature_key_id"
+    "expires_at",
+    "single_use_identifier",
+    "signature_key_id",
+    "signature"
   ],
   "properties": {
     "approval_id": {
       "type": "string"
     },
+    "connection_id": {
+      "type": "string"
+    },
+    "connection_version": {
+      "type": "string"
+    },
     "execution_id": {
       "type": "string"
     },
-    "approver_identity_id": {
+    "operation_id": {
+      "type": "string"
+    },
+    "operation_hash": {
+      "type": "string"
+    },
+    "approver_identity": {
+      "type": "string"
+    },
+    "approval_decision": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "hold",
+        "deny",
+        "quarantine",
+        "require_approval"
+      ]
+    },
+    "approval_scope": {
       "type": "string"
     },
     "approved_at": {
       "type": "string",
       "format": "date-time"
     },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "single_use_identifier": {
+      "type": "string"
+    },
     "signature_key_id": {
       "type": "string"
     },
-    "issuer_identity": {
+    "signature": {
       "type": "string"
-    },
-    "constraints": {
-      "type": "object"
-    },
-    "hashes": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "single_use_identifiers": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "signatures": {
-      "type": "array",
-      "items": { "type": "string" }
     }
   }
 }

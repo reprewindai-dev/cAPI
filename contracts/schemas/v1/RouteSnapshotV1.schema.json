@@ -2,46 +2,72 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/RouteSnapshotV1.schema.json",
   "title": "RouteSnapshotV1",
-  "description": "Represents an immutable snapshot of eligible executing nodes evaluated during policy resolution.",
+  "description": "Frozen route resolution used for an execution.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "route_snapshot_id",
-    "resolved_at",
+    "issuer_identity",
+    "workspace_id",
+    "connection_id",
+    "connection_version",
+    "target_resource_binding",
+    "requirements_hash",
+    "policy_version",
+    "selected_route_id",
+    "issued_at",
+    "expires_at",
     "candidate_count",
-    "ttl_seconds"
+    "signature_key_id",
+    "signature"
   ],
   "properties": {
     "route_snapshot_id": {
       "type": "string"
     },
-    "resolved_at": {
+    "issuer_identity": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "connection_id": {
+      "type": "string"
+    },
+    "connection_version": {
+      "type": "string"
+    },
+    "target_resource_binding": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requirements_hash": {
+      "type": "string"
+    },
+    "policy_version": {
+      "type": "string"
+    },
+    "selected_route_id": {
+      "type": "string"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
       "type": "string",
       "format": "date-time"
     },
     "candidate_count": {
       "type": "integer"
     },
-    "ttl_seconds": {
-      "type": "integer"
-    },
-    "issuer_identity": {
+    "signature_key_id": {
       "type": "string"
     },
-    "constraints": {
-      "type": "object"
-    },
-    "hashes": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "single_use_identifiers": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "signatures": {
-      "type": "array",
-      "items": { "type": "string" }
+    "signature": {
+      "type": "string"
     }
   }
 }

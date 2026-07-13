@@ -2,25 +2,36 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/TrustConnectionV1.schema.json",
   "title": "TrustConnectionV1",
-  "description": "The root state document for a negotiated, governed connection between two participants.",
+  "description": "A governed Trust Connection between participants in a workspace.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "connection_id",
-    "version",
+    "connection_version",
     "workspace_id",
     "state",
     "schema_version",
     "policy_version",
     "participants",
+    "provider_identity",
+    "target_resource_id",
+    "target_resource_kind",
+    "capability_set_id",
+    "capability_set_version",
+    "condition_set_version",
+    "measurement_profile_id",
+    "settlement_profile_id",
+    "activation_evidence_hash",
+    "latest_transition_id",
     "created_at",
-    "updated_at"
+    "updated_at",
+    "terminated_at"
   ],
   "properties": {
     "connection_id": {
       "type": "string"
     },
-    "version": {
+    "connection_version": {
       "type": "string"
     },
     "workspace_id": {
@@ -29,17 +40,17 @@
     "state": {
       "type": "string",
       "enum": [
-        "PROPOSED",
-        "NEGOTIATING",
-        "ACTIVE",
-        "DEGRADED",
-        "SUSPENDED",
-        "TERMINATING",
-        "TERMINATED",
-        "REJECTED",
-        "REVOKED",
-        "EXPIRED",
-        "FAILED"
+        "proposed",
+        "negotiating",
+        "active",
+        "degraded",
+        "suspended",
+        "terminating",
+        "terminated",
+        "rejected",
+        "revoked",
+        "expired",
+        "failed"
       ]
     },
     "schema_version": {
@@ -55,19 +66,64 @@
       }
     },
     "provider_identity": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
-    "target_resource_refs": {
-      "type": "array",
-      "items": { "type": "string" }
+    "target_resource_id": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
-    "capability_sets": {
-      "type": "array",
-      "items": { "type": "string" }
+    "target_resource_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
-    "settlement_profiles": {
-      "type": "array",
-      "items": { "type": "string" }
+    "capability_set_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "capability_set_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "condition_set_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "measurement_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "settlement_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "activation_evidence_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "latest_transition_id": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "created_at": {
       "type": "string",
@@ -78,7 +134,10 @@
       "format": "date-time"
     },
     "terminated_at": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time"
     }
   }

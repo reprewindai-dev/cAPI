@@ -1,5 +1,4 @@
 {
-  "registry_version": "1.0.0",
   "operations": [
     {
       "operation_name": "ConnectionCapabilities",
@@ -8,13 +7,10 @@
       "operation_version": "1.0.0",
       "schema_version": "1.0.0",
       "lane": 1,
-      "required_grants": [
-        "connection.capabilities.read"
-      ],
+      "required_grants": ["connection.capabilities.read"],
       "maximum_depth": 5,
       "maximum_cost": 100,
-      "required_authority": "WORKSPACE",
-      "operation_hash": "sha256:d138e8a525fc9c6a3153bebb80464f5f28dd1f2c0ee76fc93c837cec34f47185"
+      "required_authority": "WORKSPACE"
     },
     {
       "operation_name": "ConnectionExecutionHistory",
@@ -23,13 +19,10 @@
       "operation_version": "1.0.0",
       "schema_version": "1.0.0",
       "lane": 1,
-      "required_grants": [
-        "connection.execution.history.read"
-      ],
+      "required_grants": ["connection.execution.history.read"],
       "maximum_depth": 5,
       "maximum_cost": 100,
-      "required_authority": "WORKSPACE",
-      "operation_hash": "sha256:8a6c8a05f5c1a1d080a44f3feb73c54992fef9832a3d41a4fbbdee590934fb07"
+      "required_authority": "WORKSPACE"
     },
     {
       "operation_name": "ConnectionGet",
@@ -38,13 +31,10 @@
       "operation_version": "1.0.0",
       "schema_version": "1.0.0",
       "lane": 1,
-      "required_grants": [
-        "connection.read"
-      ],
+      "required_grants": ["connection.read"],
       "maximum_depth": 5,
       "maximum_cost": 100,
-      "required_authority": "WORKSPACE",
-      "operation_hash": "sha256:2595cdbaa2b95536f24789609c0025745946f7b07466d0d87da3717143f0c633"
+      "required_authority": "WORKSPACE"
     },
     {
       "operation_name": "InvokeExternalApi",
@@ -53,13 +43,10 @@
       "operation_version": "1.0.0",
       "schema_version": "1.0.0",
       "lane": 3,
-      "required_grants": [
-        "connection.external_api.invoke"
-      ],
+      "required_grants": ["connection.external_api.invoke"],
       "maximum_depth": 6,
       "maximum_cost": 300,
-      "required_authority": "CAPPO",
-      "operation_hash": "sha256:fbc5bc8347ed4283df0ffea72d364db49f505327bb04243a14839e3197ab34c5"
+      "required_authority": "CAPPO"
     },
     {
       "operation_name": "ProposeConnection",
@@ -68,13 +55,10 @@
       "operation_version": "1.0.0",
       "schema_version": "1.0.0",
       "lane": 2,
-      "required_grants": [
-        "connection.propose"
-      ],
+      "required_grants": ["connection.propose"],
       "maximum_depth": 5,
       "maximum_cost": 150,
-      "required_authority": "WORKSPACE",
-      "operation_hash": "sha256:2b118195cc7dd3cf1630cc4b80c7d1b318cebf7665c0d73389a2f7ca8c1c395a"
+      "required_authority": "WORKSPACE"
     }
   ]
 }

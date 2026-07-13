@@ -115,9 +115,15 @@ type TrustConnection {
   policyVersion: String!
   participants: [ConnectionParticipant!]!
   providerIdentity: String
-  targetResourceRefs: [String!]
-  capabilitySets: [String!]
-  settlementProfiles: [String!]
+  targetResourceId: String
+  targetResourceKind: String
+  capabilitySetId: String
+  capabilitySetVersion: String
+  conditionSetVersion: String
+  measurementProfileId: String
+  settlementProfileId: String
+  activationEvidenceHash: String
+  latestTransitionId: String
   createdAt: DateTime!
   updatedAt: DateTime!
   terminatedAt: DateTime
@@ -131,14 +137,19 @@ type ExecutionIdentity {
 
 type RouteSnapshot {
   routeSnapshotId: ID!
-  resolvedAt: DateTime!
+  issuerIdentity: String!
+  workspaceId: ID!
+  connectionId: ID!
+  connectionVersion: String!
+  targetResourceBinding: String
+  requirementsHash: String!
+  policyVersion: String!
+  selectedRouteId: ID!
+  issuedAt: DateTime!
+  expiresAt: DateTime!
   candidateCount: Int!
-  ttlSeconds: Int!
-  issuerIdentity: String
-  constraints: JSON
-  hashes: [String!]
-  singleUseIdentifiers: [String!]
-  signatures: [String!]
+  signatureKeyId: String!
+  signature: String!
 }
 
 type PGLReceiptReference {
@@ -156,7 +167,7 @@ type MeasurementReference {
 
 type SettlementReference {
   settlementId: ID!
-  amountMinor: Int!
+  amountMinor: BigInt!
   currency: String!
   network: String
   txHash: String
@@ -165,15 +176,41 @@ type SettlementReference {
 
 type ApprovalReceipt {
   approvalId: ID!
+  connectionId: ID!
+  connectionVersion: String!
   executionId: ID!
-  approverIdentityId: ID!
+  operationId: ID!
+  operationHash: String!
+  approverIdentity: String!
+  approvalDecision: PolicyDecision!
+  approvalScope: String!
   approvedAt: DateTime!
+  expiresAt: DateTime!
+  singleUseIdentifier: String!
   signatureKeyId: String!
-  issuerIdentity: String
-  constraints: JSON
-  hashes: [String!]
-  singleUseIdentifiers: [String!]
-  signatures: [String!]
+  signature: String!
+}
+
+"""
+ConnectionCapabilityPresentationV1
+Proves a connection-scoped grant or delegation.
+"""
+type ConnectionCapabilityPresentationV1 {
+  presentationId: ID!
+  connectionId: ID!
+  capabilityId: String!
+  grantedBy: String!
+}
+
+"""
+CAPPOExecutionAuthorizationReferenceV1
+Only CAPPO may issue the exact-operation execution authorization token used for consequential Lane 3 execution.
+"""
+type CAPPOExecutionAuthorizationReferenceV1 {
+  authorizationId: ID!
+  executionId: ID!
+  operationHash: String!
+  issuedBy: String!
 }
 
 type ReceiptReference {
@@ -229,7 +266,7 @@ type MeasurementSummary {
 type SettlementSummary {
   connectionId: ID!
   settlementCount: Int!
-  totalAmountMinor: Int!
+  totalAmountMinor: BigInt!
   currency: String!
   lastSettlementAt: DateTime
 }
@@ -275,7 +312,6 @@ type VerificationResult {
 }
 
 input ConnectionProposalInput {
-  workspaceId: ID!
   counterpartyIdentityId: ID!
   requestedCapabilityIds: [String!]!
   policyVersion: String!

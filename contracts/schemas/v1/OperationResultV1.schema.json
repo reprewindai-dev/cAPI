@@ -29,13 +29,20 @@
     "state": {
       "type": "string",
       "enum": [
-        "pending",
-        "awaiting_approval",
+        "requested",
+        "validating",
+        "held",
         "authorized",
         "executing",
-        "completed",
+        "waiting_event",
+        "waiting_payment",
+        "attesting",
+        "settling",
+        "sealed",
         "failed",
-        "denied"
+        "quarantined",
+        "cancelled",
+        "compensating"
       ]
     },
     "lane": {

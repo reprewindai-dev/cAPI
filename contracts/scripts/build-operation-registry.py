@@ -2,7 +2,6 @@
 import hashlib
 import json
 import os
-import re
 import sys
 from graphql import parse, print_ast, build_schema, validate, OperationDefinitionNode
 
@@ -10,17 +9,8 @@ HERE = os.path.dirname(__file__)
 OPS_DIR = os.path.join(HERE, "..", "graphql", "operations")
 REGISTRY_PATH = os.path.join(HERE, "..", "graphql", "operation-registry.json")
 SCHEMA_PATH = os.path.join(HERE, "..", "graphql", "schema.graphql")
+MANIFEST_PATH = os.path.join(OPS_DIR, "manifest.json")
 SCHEMA_VERSION = "1.0.0"
-
-LANE_LIMITS = {
-    1: {"maximum_depth": 5, "maximum_cost": 100},
-    2: {"maximum_depth": 5, "maximum_cost": 150},
-    3: {"maximum_depth": 6, "maximum_cost": 300},
-}
-
-HEADER_RE = re.compile(
-    r"#\s*capability:\s*(?P<cap>[\w.\-]+)\s*\|\s*lane:\s*(?P<lane>[123])\s*\|\s*version:\s*(?P<ver>[\w.\-]+)"
-)
 
 def build() -> dict:
     if not os.path.exists(OPS_DIR):
@@ -29,18 +19,31 @@ def build() -> dict:
         sdl = f.read()
     schema = build_schema(sdl)
 
+    with open(MANIFEST_PATH) as f:
+        manifest = json.load(f)
+
     records = []
-    for fname in sorted(os.listdir(OPS_DIR)):
-        if not fname.endswith(".graphql"):
-            continue
+    
+    # Track uniqueness
+    op_names = set()
+    
+    for op_meta in manifest["operations"]:
+        fname = op_meta["operation_file"]
+        
+        # Must be unique operation name
+        op_name = op_meta["operation_name"]
+        if op_name in op_names:
+            raise SystemExit(f"Duplicate operation name found in manifest: {op_name}")
+        op_names.add(op_name)
+        
+        # Verify Lane 3 requires CAPPO
+        lane = op_meta["lane"]
+        if lane == 3 and op_meta.get("required_authority") != "CAPPO":
+            raise SystemExit(f"{fname}: Lane 3 operation must specify required_authority: CAPPO")
+        
         with open(os.path.join(OPS_DIR, fname)) as f:
             body = f.read()
-        header = HEADER_RE.search(body)
-        if not header:
-            raise SystemExit(f"{fname}: missing capability header")
-        
-        lane = int(header.group("lane"))
-        
+            
         doc = parse(body)
         errors = validate(schema, doc)
         if errors:
@@ -51,28 +54,18 @@ def build() -> dict:
             raise SystemExit(f"{fname} must contain exactly one operation")
             
         operation = operations[0]
-        if not operation.name:
-            raise SystemExit(f"{fname} operation must be named")
+        if not operation.name or operation.name.value != op_name:
+            raise SystemExit(f"{fname} operation name in file ({operation.name.value if operation.name else 'None'}) must match manifest ({op_name})")
             
-        op_name = operation.name.value
+        # Canonicalize using print_ast (GraphQL-aware printing)
         canonical_body = print_ast(doc)
-        digest = hashlib.sha256(canonical_body.encode()).hexdigest()
         
-        required_authority = "CAPPO" if lane == 3 else "WORKSPACE"
+        # Hash UTF-8 bytes with SHA-256
+        digest = hashlib.sha256(canonical_body.encode("utf-8")).hexdigest()
         
-        records.append({
-            "operation_name": op_name,
-            "operation_file": fname,
-            "capability_id": header.group("cap"),
-            "operation_version": header.group("ver"),
-            "schema_version": SCHEMA_VERSION,
-            "operation_hash": f"sha256:{digest}",
-            "lane": lane,
-            "maximum_depth": LANE_LIMITS[lane]["maximum_depth"],
-            "maximum_cost": LANE_LIMITS[lane]["maximum_cost"],
-            "required_authority": required_authority,
-            "required_grants": [header.group("cap")],
-        })
+        op_meta["operation_hash"] = f"sha256:{digest}"
+        records.append(op_meta)
+        
     return {"registry_version": SCHEMA_VERSION, "operations": records}
 
 def main() -> None:
