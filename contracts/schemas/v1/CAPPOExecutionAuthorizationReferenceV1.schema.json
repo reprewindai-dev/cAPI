@@ -1,0 +1,34 @@
+{
+  "$id": "https://contracts.veklom.com/schemas/v1/CAPPOExecutionAuthorizationReferenceV1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAPPOExecutionAuthorizationReference",
+  "description": "Indicates an exact-operation execution token issued strictly by CAPPO for Lane 3 operations.",
+  "type": "object",
+  "properties": {
+    "authorizationId": {
+      "type": "string"
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operationHash": {
+      "type": "string"
+    },
+    "signature": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "authorizationId",
+    "issuedAt",
+    "expiresAt",
+    "operationHash",
+    "signature"
+  ],
+  "additionalProperties": false
+}

@@ -308,12 +308,53 @@ export class VeklomMCPAPIIntegration {
 
       if (!response.ok) {
         console.error(`PGL sync failed: ${response.status} ${response.statusText}`);
+      } else {
+        // Wire x402 Payment Trigger: Automate x402 settlement via pgl_hash
+        // This simulates hooking the PGL entry hash into the settlement process to automatically deduct the required VNP micro-stake or balance.
+        await this.triggerX402Settlement(entryHash, 0.05); // Default 0.05 USDC micro-stake
       }
     } catch (e) {
       console.error(`PGL sync error:`, e);
     }
 
     return entryHash;
+  }
+
+  // ========== X402 SETTLEMENT TRIGGER ==========
+
+  async triggerX402Settlement(pgl_hash: string, amount_usdc: number): Promise<boolean> {
+    const x402BaseUrl = process.env.X402_API_URL || "https://api.veklom.com";
+    const apiKey = process.env.X402_API_KEY || "";
+    
+    const payload = {
+      pgl_hash: pgl_hash,
+      amount_usdc: amount_usdc,
+      currency: "USDC",
+      network: "base"
+    };
+
+    try {
+      console.log(`[x402] Triggering automated settlement for PGL Hash: ${pgl_hash}`);
+      const response = await fetch(`${x402BaseUrl}/api/v1/x402/settle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error(`[x402] Settlement failed for ${pgl_hash}: ${response.status}`);
+        return false;
+      }
+      
+      console.log(`[x402] Settlement successful for ${pgl_hash}`);
+      return true;
+    } catch (e) {
+      console.error(`[x402] Settlement error for ${pgl_hash}:`, e);
+      return false;
+    }
   }
 
   private generateBirthCertificate(agent: VeklomAgent): string {

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/ApprovalReceiptV1.schema.json",
   "title": "ApprovalReceiptV1",
-  "description": "Signed record of a human/agent approval decision.",
+  "description": "Cryptographic proof that an authorized persona explicitly approved a held execution.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,8 +10,7 @@
     "execution_id",
     "approver_identity_id",
     "approved_at",
-    "signature_key_id",
-    "signature"
+    "signature_key_id"
   ],
   "properties": {
     "approval_id": {
@@ -30,8 +29,23 @@
     "signature_key_id": {
       "type": "string"
     },
-    "signature": {
+    "issuer_identity": {
       "type": "string"
+    },
+    "constraints": {
+      "type": "object"
+    },
+    "hashes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "single_use_identifiers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "signatures": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   }
 }

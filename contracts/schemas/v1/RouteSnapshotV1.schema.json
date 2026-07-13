@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/RouteSnapshotV1.schema.json",
   "title": "RouteSnapshotV1",
-  "description": "Frozen route resolution used for an execution.",
+  "description": "Represents an immutable snapshot of eligible executing nodes evaluated during policy resolution.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,6 +24,24 @@
     },
     "ttl_seconds": {
       "type": "integer"
+    },
+    "issuer_identity": {
+      "type": "string"
+    },
+    "constraints": {
+      "type": "object"
+    },
+    "hashes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "single_use_identifiers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "signatures": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   }
 }

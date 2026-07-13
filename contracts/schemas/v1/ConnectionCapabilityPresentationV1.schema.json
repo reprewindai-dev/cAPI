@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionCapabilityTokenV1.schema.json",
-  "title": "ConnectionCapabilityTokenV1",
-  "description": "A short-lived, signed capability token (EAT-style) presented per invocation.",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionCapabilityPresentationV1.schema.json",
+  "title": "ConnectionCapabilityPresentationV1",
+  "description": "A short-lived, signed capability presentation (EAT-style) presented per invocation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "token_id",
+    "presentation_id",
     "connection_id",
     "grant_id",
     "capability_id",

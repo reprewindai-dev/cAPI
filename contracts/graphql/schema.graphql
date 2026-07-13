@@ -17,11 +17,20 @@ Compatibility rules:
 scalar DateTime
 scalar JSON
 
+scalar BigInt
+
 enum ConnectionState {
   PROPOSED
+  NEGOTIATING
   ACTIVE
+  DEGRADED
   SUSPENDED
+  TERMINATING
   TERMINATED
+  REJECTED
+  REVOKED
+  EXPIRED
+  FAILED
 }
 
 enum ExecutionLane {
@@ -31,13 +40,28 @@ enum ExecutionLane {
 }
 
 enum ExecutionState {
-  PENDING
-  AWAITING_APPROVAL
+  REQUESTED
+  VALIDATING
+  HELD
   AUTHORIZED
   EXECUTING
-  COMPLETED
+  WAITING_EVENT
+  WAITING_PAYMENT
+  ATTESTING
+  SETTLING
+  SEALED
   FAILED
-  DENIED
+  QUARANTINED
+  CANCELLED
+  COMPENSATING
+}
+
+enum PolicyDecision {
+  ALLOW
+  HOLD
+  DENY
+  QUARANTINE
+  REQUIRE_APPROVAL
 }
 
 enum VerificationOutcome {
@@ -90,6 +114,10 @@ type TrustConnection {
   schemaVersion: String!
   policyVersion: String!
   participants: [ConnectionParticipant!]!
+  providerIdentity: String
+  targetResourceRefs: [String!]
+  capabilitySets: [String!]
+  settlementProfiles: [String!]
   createdAt: DateTime!
   updatedAt: DateTime!
   terminatedAt: DateTime
@@ -106,6 +134,11 @@ type RouteSnapshot {
   resolvedAt: DateTime!
   candidateCount: Int!
   ttlSeconds: Int!
+  issuerIdentity: String
+  constraints: JSON
+  hashes: [String!]
+  singleUseIdentifiers: [String!]
+  signatures: [String!]
 }
 
 type PGLReceiptReference {
@@ -136,6 +169,11 @@ type ApprovalReceipt {
   approverIdentityId: ID!
   approvedAt: DateTime!
   signatureKeyId: String!
+  issuerIdentity: String
+  constraints: JSON
+  hashes: [String!]
+  singleUseIdentifiers: [String!]
+  signatures: [String!]
 }
 
 type ReceiptReference {

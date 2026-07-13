@@ -36,3 +36,5 @@ jobs:
               assert not errors, f"{path}: {errors}"
               print(f"{path}: valid")
           EOF
+      - name: Compatibility and Metadata Checks
+        run: python3 contracts/scripts/compatibility-check.py

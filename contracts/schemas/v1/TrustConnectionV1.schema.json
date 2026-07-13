@@ -2,26 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://capi.veklom.com/contracts/schemas/v1/TrustConnectionV1.schema.json",
   "title": "TrustConnectionV1",
-  "description": "A governed Trust Connection between participants in a workspace.",
+  "description": "The root state document for a negotiated, governed connection between two participants.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "connection_id",
-    "connection_version",
+    "version",
     "workspace_id",
     "state",
     "schema_version",
     "policy_version",
     "participants",
     "created_at",
-    "updated_at",
-    "terminated_at"
+    "updated_at"
   ],
   "properties": {
     "connection_id": {
       "type": "string"
     },
-    "connection_version": {
+    "version": {
       "type": "string"
     },
     "workspace_id": {
@@ -30,10 +29,17 @@
     "state": {
       "type": "string",
       "enum": [
-        "proposed",
-        "active",
-        "suspended",
-        "terminated"
+        "PROPOSED",
+        "NEGOTIATING",
+        "ACTIVE",
+        "DEGRADED",
+        "SUSPENDED",
+        "TERMINATING",
+        "TERMINATED",
+        "REJECTED",
+        "REVOKED",
+        "EXPIRED",
+        "FAILED"
       ]
     },
     "schema_version": {
@@ -48,6 +54,21 @@
         "$ref": "ConnectionParticipantV1.schema.json"
       }
     },
+    "provider_identity": {
+      "type": "string"
+    },
+    "target_resource_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "capability_sets": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "settlement_profiles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "created_at": {
       "type": "string",
       "format": "date-time"
@@ -57,10 +78,7 @@
       "format": "date-time"
     },
     "terminated_at": {
-      "type": [
-        "string",
-        "null"
-      ],
+      "type": "string",
       "format": "date-time"
     }
   }
