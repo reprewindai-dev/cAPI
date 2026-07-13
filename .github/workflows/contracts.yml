@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install Python dependencies
+        run: pip install graphql-core==3.2.3
       - name: Verify schemas match emitter
         run: |
           python3 contracts/scripts/emit-schemas.py
@@ -24,7 +26,6 @@ jobs:
         run: python3 contracts/scripts/build-operation-registry.py --check
       - name: Validate GraphQL SDL and persisted operations
         run: |
-          pip install graphql-core==3.2.3
           python3 - <<'EOF'
           from graphql import build_schema, parse, validate
           sdl = open("contracts/graphql/schema.graphql").read()
