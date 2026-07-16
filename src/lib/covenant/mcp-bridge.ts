@@ -13,6 +13,7 @@
 
 import { randomUUID } from "crypto";
 import type { CapabilityIdentity, CovenantRequest, CapabilityMethod } from "./types";
+import { generateNonce, hmacHashObject } from "./crypto";
 
 // ---------------------------------------------------------------------------
 // Config — pulled from env so nothing is hardcoded
@@ -230,14 +231,43 @@ export class MCPBridge {
     const controller = new AbortController();
     const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
 
+    // Reshape the payload into the required CAPPO contract
+    const nonce = generateNonce();
+    const envelopeData = {
+      covenant_id: request.connection_id,
+      timestamp: new Date().toISOString(),
+      nonce,
+    };
+    
+    // Sign the envelope using cAPI internal secret
+    const signature = hmacHashObject(envelopeData, nonce);
+
+    const cappoPayload = {
+      prompt: request.input?.prompt ?? "",
+      workspace: (request.context as any)?.workspace_id ?? (request.context?.user_context as any)?.workspace_id ?? "unknown",
+      budget: { 
+        agent_id: request.agent_id,
+        capability: capability.capability_id 
+      },
+      governance_context: { 
+        trace_id: request.context?.trace_id ?? "",
+        policy_applied: "default",
+      },
+      security_envelope: {
+        ...envelopeData,
+        signature
+      }
+    };
+
     const res = await fetch(capability.endpoint, {
       method:  "POST",
       headers: {
         "Content-Type":  "application/json",
         "X-Covenant-Id": request.connection_id,
         "X-Agent-Id":    request.agent_id,
+        "X-API-Key":     process.env.CAPPO_INTERNAL_EXEC_KEY || "cappo_internal_exec_key_veklom_2026",
       },
-      body:   JSON.stringify({ action: request.action, input: request.input }),
+      body:   JSON.stringify(cappoPayload),
       signal: controller.signal,
     });
     clearTimeout(timer);
