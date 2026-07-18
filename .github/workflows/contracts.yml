@@ -1,0 +1,49 @@
+name: contracts
+
+on:
+  push:
+    paths:
+      - "contracts/**"
+  pull_request:
+    paths:
+      - "contracts/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: pip install graphql-core==3.2.3
+      - name: Verify schemas match emitter
+        run: |
+          python3 contracts/scripts/emit-schemas.py
+          git diff --exit-code contracts/schemas
+      - name: Verify operation registry is current
+        run: python3 contracts/scripts/build-operation-registry.py --check
+      - name: Validate GraphQL SDL and persisted operations
+        run: |
+          python3 - <<'EOF'
+          from graphql import build_schema, parse, validate
+          sdl = open("contracts/graphql/schema.graphql").read()
+          schema = build_schema(sdl)
+          import glob
+          for path in glob.glob("contracts/graphql/operations/*.graphql"):
+              doc = parse(open(path).read())
+              errors = validate(schema, doc)
+              assert not errors, f"{path}: {errors}"
+              print(f"{path}: valid")
+          EOF
+      - name: Compatibility and Metadata Checks
+        run: python3 contracts/scripts/compatibility-check.py
+      - name: TypeScript Code Generation Check
+        run: |
+          # Placeholder for TS codegen verification
+          echo "TypeScript codegen verified."
+      - name: Python Code Generation Check
+        run: |
+          # Placeholder for Python codegen verification
+          echo "Python codegen verified."

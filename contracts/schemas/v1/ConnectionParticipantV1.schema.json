@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionParticipantV1.schema.json",
+  "title": "ConnectionParticipantV1",
+  "description": "A participant identity bound to a Trust Connection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "participant_id",
+    "identity_id",
+    "role",
+    "display_name",
+    "public_key_id"
+  ],
+  "properties": {
+    "participant_id": {
+      "type": "string"
+    },
+    "identity_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "public_key_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

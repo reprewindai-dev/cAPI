@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://capi.veklom.com/contracts/schemas/v1/ConnectionCapabilityPresentationV1.schema.json",
+  "title": "ConnectionCapabilityPresentationV1",
+  "description": "Proves a connection-scoped grant or delegation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "presentation_id",
+    "connection_id",
+    "capability_id",
+    "granted_by"
+  ],
+  "properties": {
+    "presentation_id": {
+      "type": "string"
+    },
+    "connection_id": {
+      "type": "string"
+    },
+    "capability_id": {
+      "type": "string"
+    },
+    "granted_by": {
+      "type": "string"
+    }
+  }
+}
