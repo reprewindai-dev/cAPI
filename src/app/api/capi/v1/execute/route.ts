@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { verifySnapshot } from '@/lib/mcp/snapshot';
 
 export async function POST(request: Request) {
   try {
@@ -8,6 +9,15 @@ export async function POST(request: Request) {
     // Phase 1: RECEIVE (Schema validation would happen here)
     if (!body.connection_id || !body.agent_id || !body.capability_id) {
       return NextResponse.json({ error: 'Invalid schema' }, { status: 400 });
+    }
+
+    const snapshotHash = request.headers.get('X-Capability-Hash') || body.snapshot_hash;
+    const snapshotSignature = request.headers.get('X-Capability-Signature') || body.snapshot_signature;
+
+    if (!snapshotHash || !snapshotSignature || !verifySnapshot(snapshotHash, snapshotSignature)) {
+      return NextResponse.json({ 
+        error: 'Forbidden: Missing or invalid capability snapshot signature. Fail-closed enforced.' 
+      }, { status: 403 });
     }
 
     // Task 5: Consequential Reauthorization Routing
