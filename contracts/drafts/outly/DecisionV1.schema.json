@@ -81,6 +81,7 @@
     },
     "modifications": {
       "type": "array",
+      "description": "MUST be empty unless decision is 'MODIFY'. Defines the exact fields and values to be altered.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -102,7 +103,8 @@
       }
     },
     "human_review_required": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "MUST be true if decision is 'HUMAN_REVIEW', false otherwise."
     },
     "cappo_authorization_reference": {
       "type": [
@@ -136,10 +138,7 @@
       }
     },
     "evidence_reference": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": "object",
       "additionalProperties": false,
       "required": [
         "evidence_id",
@@ -166,7 +165,32 @@
     },
     "expires_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "The exact time this decision expires. An expired decision MUST NOT be executed by Outly; a new execution attempt with a new execution_id must be proposed instead."
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "decision": { "const": "MODIFY" } }
+      },
+      "then": {
+        "properties": { "modifications": { "minItems": 1 } }
+      },
+      "else": {
+        "properties": { "modifications": { "maxItems": 0 } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "decision": { "const": "HUMAN_REVIEW" } }
+      },
+      "then": {
+        "properties": { "human_review_required": { "const": true } }
+      },
+      "else": {
+        "properties": { "human_review_required": { "const": false } }
+      }
+    }
+  ]
 }

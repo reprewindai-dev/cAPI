@@ -65,7 +65,7 @@ export interface DecisionV1 {
   modifications?: DecisionModification[];
   human_review_required: boolean;
   cappo_authorization_reference?: CappoAuthorizationReference | null;
-  evidence_reference?: EvidenceReference | null;
+  evidence_reference: EvidenceReference;
   timestamp: string;
   expires_at: string;
 }
@@ -88,7 +88,7 @@ export interface ActionOutcomeV1 {
   outcome_status: 'SUCCEEDED' | 'FAILED' | 'PARTIALLY_SUCCEEDED' | 'NOT_EXECUTED';
   idempotency_key: string;
   nonce: string;
-  evidence_reference?: EvidenceReference | null;
+  evidence_reference: EvidenceReference;
   timestamp: string;
   result_reference?: ResultReference | null;
 }

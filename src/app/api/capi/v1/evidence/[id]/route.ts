@@ -6,6 +6,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // Mock retrieving evidence from PGL
   const mockEvidence = {
     evidence_id: id,
+    entry_hash: 'hash_' + Buffer.from(id).toString('base64'),
     connection_id: 'conn-mock-1234',
     timestamp: new Date().toISOString(),
     who: {
