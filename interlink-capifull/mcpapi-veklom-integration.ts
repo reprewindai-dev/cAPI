@@ -323,6 +323,11 @@ export class VeklomMCPAPIIntegration {
   // ========== X402 SETTLEMENT TRIGGER ==========
 
   async triggerX402Settlement(pgl_hash: string, amount_minor: number): Promise<boolean> {
+    if (!Number.isSafeInteger(amount_minor) || amount_minor < 0) {
+      console.error(`[x402] Invalid settlement amount_minor: ${amount_minor}`);
+      return false;
+    }
+
     const x402BaseUrl = process.env.X402_API_URL || "https://api.veklom.com";
     const apiKey = process.env.X402_API_KEY || "";
     
