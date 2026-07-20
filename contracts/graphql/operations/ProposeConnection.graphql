@@ -1,4 +1,4 @@
-# capability: connection.proposal.create | lane: 2 | version: 1.0.0
+# capability: connection.propose | lane: 2 | version: 1.0.0
 mutation ProposeConnection($input: ConnectionProposalInput!) {
   proposeConnection(input: $input) {
     connectionId
