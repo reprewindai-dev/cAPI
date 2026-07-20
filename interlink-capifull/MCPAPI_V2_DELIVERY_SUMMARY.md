@@ -349,7 +349,7 @@ Week 8: Production
 
 ```bash
 docker-compose up -d
-# Access at http://localhost:3000
+# Access at http://localhost:3002
 # Grafana at http://localhost:3001
 ```
 

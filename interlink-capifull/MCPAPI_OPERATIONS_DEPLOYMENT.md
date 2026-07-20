@@ -28,7 +28,7 @@ npm run dev
 # Run tests
 npm test
 
-# Start API server (http://localhost:3000)
+# Start API server (http://localhost:3002)
 npm start
 ```
 
@@ -42,7 +42,7 @@ docker build -t mcpapi-runtime:1.0.0 .
 docker run -d \
   -e DATABASE_URL=postgresql://localhost/mcpapi \
   -e REDIS_URL=redis://localhost:6379 \
-  -p 3000:3000 \
+  -p 3002:3002 \
   mcpapi-runtime:1.0.0
 ```
 
@@ -389,7 +389,7 @@ global:
 scrape_configs:
 - job_name: 'mcpapi'
   static_configs:
-    - targets: ['localhost:3000']
+    - targets: ['localhost:3002']
   metrics_path: '/metrics'
 ```
 
@@ -727,7 +727,7 @@ spec:
           name: ingress-nginx
     ports:
     - protocol: TCP
-      port: 3000
+      port: 3002
   egress:
   - to:
     - namespaceSelector: {}
@@ -910,7 +910,7 @@ kubectl scale deployment mcpapi-runtime --replicas=10 -n mcpapi
 | Component | Capacity | Limiting Factor |
 |-----------|----------|-----------------|
 | Single pod | 1000 req/s | CPU + memory |
-| 3-pod cluster | 3000 req/s | Network |
+| 3-pod cluster | 3002 req/s | Network |
 | 10-pod cluster | 10000 req/s | Database |
 | Max cluster | 50000 req/s | PGL ledger sync |
 

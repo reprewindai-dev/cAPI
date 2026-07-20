@@ -36,9 +36,9 @@ COPY package*.json ./
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+  CMD node -e "require('http').get('http://localhost:3002/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-EXPOSE 3000
+EXPOSE 3002
 
 ENV NODE_ENV=production
 ENV LOG_LEVEL=info
@@ -55,7 +55,7 @@ services:
   mcpapi:
     build: .
     ports:
-      - "3000:3000"
+      - "3000:3002"
     environment:
       DATABASE_URL: postgresql://mcpapi:mcpapi@postgres:5432/mcpapi
       REDIS_URL: redis://redis:6379
@@ -121,7 +121,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana:/etc/grafana/provisioning
     ports:
-      - "3001:3000"
+      - "3001:3002"
     depends_on:
       - prometheus
     networks:
@@ -389,7 +389,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
-          containerPort: 3000
+          containerPort: 3002
           protocol: TCP
         - name: metrics
           containerPort: 3001
@@ -589,7 +589,7 @@ spec:
           name: ingress-nginx
     ports:
     - protocol: TCP
-      port: 3000
+      port: 3002
   egress:
   - to:
     - podSelector:
@@ -634,7 +634,7 @@ global:
 scrape_configs:
 - job_name: 'mcpapi'
   static_configs:
-  - targets: ['localhost:3000']
+  - targets: ['localhost:3002']
   metrics_path: '/metrics'
 
 - job_name: 'postgres'
@@ -1050,9 +1050,9 @@ echo "MCPAPI v$VERSION is running at https://mcpapi.example.com"
 #!/bin/bash
 
 # Health check endpoints
-HEALTH_ENDPOINT="http://localhost:3000/health"
-READY_ENDPOINT="http://localhost:3000/ready"
-METRICS_ENDPOINT="http://localhost:3000/metrics"
+HEALTH_ENDPOINT="http://localhost:3002/health"
+READY_ENDPOINT="http://localhost:3002/ready"
+METRICS_ENDPOINT="http://localhost:3002/metrics"
 
 echo "Checking MCPAPI v2.0 health..."
 

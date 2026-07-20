@@ -978,7 +978,7 @@ describe('MCPAPI Runtime', () => {
 
 # Generate 1000 requests
 for i in {1..1000}; do
-  curl -X POST http://localhost:3000/mcpapi/request \
+  curl -X POST http://localhost:3002/mcpapi/request \
     -H "Content-Type: application/json" \
     -d @test/fixtures/request-$i.json &
 done
@@ -1004,7 +1004,7 @@ RUN npm install --production
 
 COPY dist/ ./dist/
 
-EXPOSE 3000
+EXPOSE 3002
 
 CMD ["node", "dist/server.js"]
 ```
@@ -1031,7 +1031,7 @@ spec:
       - name: mcpapi
         image: mcpapi-runtime:1.0.0
         ports:
-        - containerPort: 3000
+        - containerPort: 3002
         env:
         - name: DATABASE_URL
           valueFrom:
@@ -1051,13 +1051,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 3000
+            port: 3002
           initialDelaySeconds: 10
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /ready
-            port: 3000
+            port: 3002
           initialDelaySeconds: 5
           periodSeconds: 5
 ---
@@ -1069,7 +1069,7 @@ spec:
   type: ClusterIP
   ports:
   - port: 80
-    targetPort: 3000
+    targetPort: 3002
   selector:
     app: mcpapi
 ```
@@ -1084,7 +1084,7 @@ PGL_ENDPOINT=https://pgl.example.com/api
 VEKLOM_ENDPOINT=https://veklom.example.com/api
 LOG_LEVEL=info
 NODE_ENV=production
-MCPAPI_PORT=3000
+MCPAPI_PORT=3002
 MCPAPI_HOST=0.0.0.0
 MCPAPI_WORKERS=4
 ```

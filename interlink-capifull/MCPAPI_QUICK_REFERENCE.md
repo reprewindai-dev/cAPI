@@ -361,7 +361,7 @@ LOG_LEVEL=info
 LOG_FORMAT=json
 
 # Server
-PORT=3000
+PORT=3002
 HOST=0.0.0.0
 WORKERS=4
 ```

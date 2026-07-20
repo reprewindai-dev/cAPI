@@ -348,7 +348,7 @@ Week 2: Integration
 
 ### Performance Requirements
 - [ ] Single pod: 1000 req/s
-- [ ] 3-pod cluster: 3000 req/s
+- [ ] 3-pod cluster: 3002 req/s
 - [ ] Average latency: 70ms (excluding capability execution)
 - [ ] P95 latency: < 500ms
 - [ ] P99 latency: < 2s

@@ -9,7 +9,7 @@ Coolify can automatically detect the `Dockerfile` at the root of the repository.
 2. Create a new Resource in Coolify and select **Project / Application**.
 3. Choose the repository and branch.
 4. Coolify will auto-detect the configuration. Under the **Build Pack** setting, select **Docker** (it might already be selected).
-5. Ensure the **Port** is set to `3000`.
+5. Ensure the **Port** is set to `3002`.
 6. Deploy! The `Dockerfile` uses Next.js Standalone mode for a highly optimized, lightweight Node.js production image.
 
 ## Option 2: Nixpacks
