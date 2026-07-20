@@ -1,7 +1,23 @@
 # ADR-005: x402 Settlement Escrow (Design & Threat Model)
 
 ## Status
-**Proposed — BLOCKED pending human authorization and a separate security audit.** This ADR is preparation only. It contains **no** Solidity and authorizes **no** deployment. Per the canonical planning export, packet-002 is `NOT_STARTED` / `executionEligibility: BLOCKED`, classified `UNVERIFIED_DESIGN_INTENT` ("Contracts do not exist on disk and have not been deployed to any testnet"), and the export is unsigned. No contract may be written, compiled, or deployed until this ADR is approved and an audit plan is in place.
+**ACCEPTED FOR DESIGN — IMPLEMENTATION BLOCKED PENDING SECURITY AND DEPLOYMENT APPROVAL.**
+
+The owner has approved the scope and threat-model direction of this design. Solidity implementation and deployment remain **blocked**. This ADR contains **no** Solidity and authorizes **no** deployment. No contract may be written, compiled, or deployed until (a) the pre-packet decisions below are made and recorded, and (b) a security + deployment approval and audit plan are in place, at which point a new authorized implementation packet may be issued.
+
+Per the canonical planning export, packet-002 is `NOT_STARTED` / `executionEligibility: BLOCKED`, classified `UNVERIFIED_DESIGN_INTENT` ("Contracts do not exist on disk and have not been deployed to any testnet"), and the export is unsigned.
+
+## Pre-packet decisions required (blockers to any implementation packet)
+Before an implementation packet may be created, the following must be decided and recorded:
+1. **Target chain** (e.g. Base / Arbitrum / other) and rationale.
+2. **Settlement asset** (e.g. USDC) and its minor-unit decimals.
+3. **CAPPO authorization format** — the exact receipt/EAT structure, signature scheme, and how the contract/relayer verifies it.
+4. **VNP evidence trust model** — what VNP attests, who signs, and how the release path trusts/validates it.
+5. **Admin and upgrade controls** — proxy/upgrade pattern (or immutability), who holds admin, timelock.
+6. **Pause and recovery model** — emergency pause authority and stuck-fund recovery path.
+7. **Audit plan** — auditor(s), scope, and the gate that must pass before mainnet.
+8. **Testnet plan** — target testnet, test scenarios, and success criteria before mainnet.
+9. **Key custody** — how authorizer/admin keys are generated, stored, and rotated.
 
 ## Context
 The blueprint's "x402 Settles" doctrine (ADR-001) requires machine-to-machine settlement **strictly bound to executions**. Packet-002 proposes an escrow contract at `contracts/X402Escrow.sol` (Solidity, on-chain).

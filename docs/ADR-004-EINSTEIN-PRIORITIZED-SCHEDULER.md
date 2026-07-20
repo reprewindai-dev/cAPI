@@ -1,7 +1,11 @@
 # ADR-004: Einstein Prioritized Scheduler (Placement & Design)
 
 ## Status
-**Proposed — BLOCKED pending human authorization.** This ADR is preparation only. It selects **no** repository and contains **no** implementation. Per the canonical planning export, packet-001 is `NOT_STARTED` / `executionEligibility: BLOCKED` ("execution is currently blocked"), and the export is unsigned (`UNLOCKED_PLANNING_PHASE`, `approvedBy: NONE`). No scheduler code may be written and no repository may be chosen until this ADR is approved.
+**ACCEPTED FOR ARCHITECTURE — IMPLEMENTATION STILL BLOCKED PENDING A NEW SIGNED PACKET.**
+
+The owner has approved the architecture direction, the authority boundaries, and **Option A** as the first implementation phase. Implementation remains blocked: no scheduler code may be written until a new authorized/signed packet is issued. This document contains **no** implementation.
+
+Per the canonical planning export, packet-001 is `NOT_STARTED` / `executionEligibility: BLOCKED` and the export is unsigned (`UNLOCKED_PLANNING_PHASE`, `approvedBy: NONE`); a new signed packet supersedes that block for implementation.
 
 ## Context
 The canonical blueprint proposes an "Einstein-Markov Dynamic Task Prioritization Engine" for reputation-weighted priority routing of agent tasks. The planning packet targets `src/scheduler/einstein.rs` (Rust).
@@ -17,14 +21,18 @@ Two hard constraints govern this decision:
 - **The runtime** executes only what CAPPO authorized.
 - **PGL / Gnomledger** records scheduling inputs, the scheduling decision, and the outcome as evidence. It does **not** compute priority.
 
-## Decision (to be ratified)
-This ADR frames the decision; it does not make it. The scheduler is an **ABIDE-owned planning component** implemented in the existing stack. Candidate placements (to be chosen at approval time, not now):
+## Decision (ratified)
+The scheduler is an **ABIDE-owned planning component** implemented in the existing stack. **Option A is selected for the first implementation phase.**
 
 | Option | Location | Language | Pros | Cons |
 | --- | --- | --- | --- | --- |
-| A | ABIDE service module | TypeScript/Node | Co-located with planning/graph synthesis; single planning authority | Node CPU-bound scoring at high QPS |
+| **A (selected)** | ABIDE service module | TypeScript/Node | Co-located with planning/graph synthesis; single planning authority | Node CPU-bound scoring at high QPS |
 | B | ABIDE Python worker | Python/FastAPI+Celery | Matches BYOS worker patterns; easy numeric/Markov modeling; Celery for queueing | Cross-language boundary with TS planner |
 | C | Shared library consumed by ABIDE | TS or Python package | Reusable, testable in isolation | Adds a package to maintain |
+
+**Phase-1 shape (Option A):** an ABIDE-owned TypeScript service module. The scoring engine is written as a **deterministic, side-effect-free core** (pure functions over recorded inputs + pinned model version) so it can be **extracted later** (e.g. to Option B/C or a separate service) if and only if performance evidence requires it. Extraction is not authorized now.
+
+**Authority boundary (approved):** ABIDE owns planning and prioritization; CAPPO authorizes consequential execution; the runtime executes; PGL/Gnomledger records the inputs, scheduling decision, authorization reference, and outcome.
 
 **Non-options (explicitly rejected):** `einstein.rs` / Rust; any placement inside Gnomledger/PGL; any placement inside CAPPO; any placement inside cAPI (cAPI is the interlink fabric gateway, not a planner — see ADR-002).
 
