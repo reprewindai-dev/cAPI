@@ -39,6 +39,8 @@ This ADR must be read alongside the governed issue "Replace simulated automatic 
 10. **Deployment requirements.** External audit sign-off before any mainnet deploy; testnet-first; reproducible builds and verified source; documented admin keys / timelock / pause; target chain and settlement asset (USDC minor units) pinned; production runs on the owner's stack (Coolify/Hetzner) for the off-chain relayer, with the contract on the designated chain — **not** Vercel.
 
 ## Consequences
-- Approval authorizes a **separate** Solidity implementation packet gated behind a security audit; it does not touch the Python/TS services beyond the settlement client seam.
-- Until approved and audited, no contract exists, compiles, or deploys.
+- **Approval of this ADR does NOT authorize any implementation or deployment.** It records the accepted design and threat-model direction only. Implementation requires the pre-packet decisions above, a security + deployment approval, an audit plan, and a separate explicitly authorized packet.
+- **Implementation owner: a separate, audited Solidity contract effort** — not cAPI and not the Python/TS services (which interact only via the settlement client seam). 
+- **cAPI does not own the escrow.** This document lives in `cAPI/docs` only because that path currently holds the cross-platform ADR registry. Record location ≠ implementation ownership.
+- Until authorized and audited, no contract exists, compiles, or deploys.
 - This ADR is not evidence that escrow/settlement is implemented or verified; the capability remains evidence-gated (`UNVERIFIED_DESIGN_INTENT`).

@@ -49,6 +49,7 @@ Any approved implementation must define all of the following. This list is the a
 8. **Evidence recording.** Scheduling inputs, the decision (ordering + chosen task + score + model version), and the outcome are anchored to PGL/Gnomledger (SHA-256, hash-chained, consistent with the existing evidence-anchoring work).
 
 ## Consequences
-- Approval of this ADR authorizes a follow-up implementation packet **in the existing Python/TS stack only**, at one of options A–C.
-- Until approved, no scheduler code exists and no repository is designated as owner.
+- **Approval of this ADR does NOT authorize any implementation.** It records the accepted architecture direction and Option A only. Implementation requires a separate, explicitly authorized/signed packet.
+- **Implementation owner: ABIDE.** When implementation is authorized, the scheduler is built in the **ABIDE** repository (`reprewindai-dev/ABIDE`) as an ABIDE-owned TypeScript service module. ABIDE should reference/ingest this ADR as its governing scheduler decision — it must not be duplicated as a competing source of truth.
+- **cAPI does not own the scheduler.** This document lives in `cAPI/docs` only because that path currently holds the cross-platform ADR registry (ADR-001/002/003). Record location ≠ implementation ownership.
 - This ADR does not constitute evidence that any scheduling capability is implemented or verified; the capability remains evidence-gated.
