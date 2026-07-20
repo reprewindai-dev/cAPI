@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["connection_id", "agent_id", "agent_signature", "capability_id", "action", "input", "timestamp"],
+  "properties": {
+    "connection_id":    { "type": "string", "format": "uuid" },
+    "agent_id":         { "type": "string", "format": "uuid" },
+    "agent_signature":  { "type": "string", "description": "Ed25519 signature of SHA256(connection_id+agent_id+capability_id+action+input_json+timestamp)" },
+    "capability_id":    { "type": "string", "format": "uuid" },
+    "action":           { "type": "string" },
+    "input":            { "type": "object", "properties": { "params": { "type": "object" } } },
+    "context": {
+      "type": "object",
+      "properties": {
+        "trace_id":     { "type": "string" },
+        "audit_tags":   { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "timestamp":        { "type": "string", "format": "date-time" }
+  }
+}

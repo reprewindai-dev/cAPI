@@ -20,6 +20,14 @@ export type InferenceProvider =
 
 export type GovernanceTier = "system" | "user" | "service";
 
+export type VerificationTier =
+  | "Tier0" // Unknown / Unverified
+  | "Tier1" // Self-attested
+  | "Tier2" // Machine-verified basic
+  | "Tier3" // Simulated/Emulated safe
+  | "Tier4" // Cryptographically proven
+  | "Tier5"; // Fully governed & audited
+
 export interface AgentIdentity {
   agent_id: string;
   agent_name: string;
@@ -33,6 +41,7 @@ export interface AgentIdentity {
     framework: string;
     inference_provider: InferenceProvider;
     tier: GovernanceTier;
+    verification_tier?: VerificationTier;
   };
 }
 
@@ -76,6 +85,7 @@ export interface CapabilityIdentity {
     risk_level?: Severity;
     audit_level?: string;
     provider?: string;
+    verification_tier?: VerificationTier;
   };
 }
 
@@ -180,6 +190,7 @@ export interface Evidence {
     regulatory_category: string;
     data_classification: DataClassification;
     retention_policy: string;
+    verification_tier?: VerificationTier;
   };
   previous_hash?: string;
   /** External PGL (gnomledger) mirror status; set after Phase 7 sealing. */

@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "provider": "veklom-capi",
+  "name": "Interlink-CAPI",
+  "description": "Governed machine-to-machine capability exchange for Veklom agents",
+  "entry": "https://api.veklom.com",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization",
+    "scopes": ["read", "write", "admin"]
+  },
+  "attestation": {
+    "required": true,
+    "method": "ed25519",
+    "claims_required": ["agent_id", "agent_signature", "timestamp", "connection_id"]
+  },
+  "identity": {
+    "agent_schema": "/schemas/agent-identity.json",
+    "capability_schema": "/schemas/capability-identity.json",
+    "connection_schema": "/schemas/connection-identity.json"
+  },
+  "tools": [
+    {
+      "name": "capi.capabilities.list",
+      "description": "Discover all capabilities this agent is authorized to call",
+      "endpoint": "/capi/v1/capabilities",
+      "method": "GET",
+      "input_schema": "/schemas/capabilities-query.json",
+      "output_schema": "/schemas/capabilities-response.json",
+      "trust_minimum": 0
+    },
+    {
+      "name": "capi.execute",
+      "description": "Execute a governed capability call. Identity + policy + evidence generated automatically.",
+      "endpoint": "/capi/v1/execute",
+      "method": "POST",
+      "input_schema": "/schemas/execute-request.json",
+      "output_schema": "/schemas/execute-response.json",
+      "trust_minimum": 50
+    },
+    {
+      "name": "capi.evidence.get",
+      "description": "Retrieve cryptographic proof for a past execution",
+      "endpoint": "/capi/v1/evidence/{evidence_id}",
+      "method": "GET",
+      "input_schema": "/schemas/evidence-query.json",
+      "output_schema": "/schemas/evidence-response.json",
+      "trust_minimum": 0
+    },
+    {
+      "name": "interlink.route",
+      "description": "Route a request across workspace clusters via Interlink",
+      "endpoint": "/capi/v1/interlink/route",
+      "method": "POST",
+      "input_schema": "/schemas/interlink-route-request.json",
+      "output_schema": "/schemas/interlink-route-response.json",
+      "trust_minimum": 60
+    }
+  ]
+}

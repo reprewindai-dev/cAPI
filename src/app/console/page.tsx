@@ -78,7 +78,8 @@ export default function ConsolePage() {
       return;
     }
     try {
-      const r = await postJSON<CovenantResponse>("/api/request", {
+      const r = await postJSON<CovenantResponse>("/api/capi/v1/execute", {
+        connection_id: crypto.randomUUID(),
         agent_id: agent,
         capability_id: cap,
         action,

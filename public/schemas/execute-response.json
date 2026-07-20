@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "connection_id":  { "type": "string", "format": "uuid" },
+    "status":         { "type": "string", "enum": ["authorized", "denied"] },
+    "evidence_hash":  { "type": "string" },
+    "result": {
+      "type": "object",
+      "properties": {
+        "output":           { "type": "object" },
+        "output_hash":      { "type": "string" },
+        "execution_time_ms": { "type": "number" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "trust_delta":      { "type": "number" },
+        "new_trust_score":  { "type": "number" },
+        "audit_logged":     { "type": "boolean" }
+      }
+    },
+    "reason": { "type": "string" },
+    "policy_id": { "type": "string", "format": "uuid" },
+    "remediation": {
+      "type": "object",
+      "properties": {
+        "minimum_trust_required": { "type": "number" },
+        "trust_current":          { "type": "number" },
+        "approval_required":      { "type": "boolean" },
+        "approval_path":          { "type": "string" }
+      }
+    }
+  }
+}

@@ -22,7 +22,7 @@ export default function LedgerPage() {
 
   useEffect(() => {
     if (!selected) return;
-    getJSON<Evidence>(`/api/pgl/${selected}`).then(setEvidence);
+    getJSON<Evidence>(`/api/capi/v1/evidence/${selected}`).then(setEvidence);
     setChain([]);
   }, [selected]);
 

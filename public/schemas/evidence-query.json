@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "evidence_id": { "type": "string", "format": "uuid" },
+    "connection_id": { "type": "string", "format": "uuid" }
+  },
+  "anyOf": [
+    { "required": ["evidence_id"] },
+    { "required": ["connection_id"] }
+  ]
+}

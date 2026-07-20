@@ -4,6 +4,7 @@
  */
 
 import { getEngine } from "./engine";
+import { hashObject, signMessage } from "./crypto";
 import type {
   AgentIdentity,
   CapabilityIdentity,
@@ -144,4 +145,52 @@ export function discover(agent_id: string): DiscoveredCapability[] {
     );
     return { capability, permissions };
   });
+}
+
+export interface RouteSnapshotV1 {
+  route_snapshot_id: string;
+  version: number;
+  requirements_hash: string;
+  signature_key_id: string;
+  signature: string;
+  capabilities: DiscoveredCapability[];
+}
+
+/**
+ * Builds a versioned, cryptographically signed snapshot of the capability graph
+ * for an agent, used to pin execution state across boundaries.
+ */
+export function buildSignedRouteSnapshot(
+  agent_id: string,
+  privateKeyB64: string,
+  keyId: string = "runtime_key"
+): RouteSnapshotV1 {
+  const engine = getEngine();
+  const capabilities = discover(agent_id);
+  const version = engine.runtime.version;
+  
+  // Sort capabilities for deterministic hashing
+  const sortedCapabilities = [...capabilities].sort((a, b) => 
+    a.capability.capability_id.localeCompare(b.capability.capability_id)
+  );
+
+  const payload = JSON.stringify({
+    agent_id,
+    version,
+    capabilities: sortedCapabilities,
+  });
+
+  const requirements_hash = hashObject({ payload });
+  
+  const signaturePayload = Buffer.from(`${requirements_hash}:${version}`);
+  const signature = signMessage(signaturePayload, privateKeyB64);
+
+  return {
+    route_snapshot_id: requirements_hash,
+    version,
+    requirements_hash,
+    signature_key_id: keyId,
+    signature,
+    capabilities: sortedCapabilities,
+  };
 }

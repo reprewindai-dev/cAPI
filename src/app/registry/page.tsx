@@ -21,8 +21,8 @@ export default function RegistryPage() {
 
   useEffect(() => {
     if (!agent) return;
-    getJSON<{ capabilities: DiscoveredCapability[] }>(`/api/discover/${agent}`).then((d) =>
-      setDiscovered(d.capabilities),
+    getJSON<{ data: DiscoveredCapability[] }>(`/api/capi/v1/capabilities?agent_id=${agent}`).then((d) =>
+      setDiscovered(d.data),
     );
   }, [agent, data]);
 

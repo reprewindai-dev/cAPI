@@ -48,6 +48,8 @@ export class CovenantRuntime {
   policies = new Map<string, Policy>();
   trust = new Map<string, TrustScore>();
   suspended = new Set<string>();
+  
+  version: number = 1;
 
   private evidenceLedger = new Map<string, Evidence>();
   private auditLog: Evidence[] = [];
@@ -62,6 +64,7 @@ export class CovenantRuntime {
   // ---- registration ---------------------------------------------------------
 
   registerAgent(agent: AgentIdentity): void {
+    this.version++;
     this.agents.set(agent.agent_id, agent);
     if (!this.trust.has(agent.agent_id)) {
       const initialScore =
@@ -80,10 +83,12 @@ export class CovenantRuntime {
   }
 
   registerCapability(cap: CapabilityIdentity): void {
+    this.version++;
     this.capabilities.set(cap.capability_id, cap);
   }
 
   registerPolicy(policy: Policy): void {
+    this.version++;
     this.policies.set(policy.policy_id, policy);
   }
 
@@ -93,12 +98,14 @@ export class CovenantRuntime {
     if (enabled) {
       const parked = this.policies.get(disabledKey);
       if (parked) {
+        this.version++;
         this.policies.set(policy_id, parked);
         this.policies.delete(disabledKey);
       }
     } else {
       const p = this.policies.get(policy_id);
       if (!p) return;
+      this.version++;
       this.policies.set(disabledKey, p);
       this.policies.delete(policy_id);
     }
