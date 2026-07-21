@@ -1,52 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngine, type SignedCallInput } from "@/lib/covenant/engine";
 import type { CovenantRequest } from "@/lib/covenant/types";
+import { requestInputSchema, readJson } from "@/lib/covenant/validation";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const parsed = await readJson(req, requestInputSchema);
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
   const engine = getEngine();
   await engine.syncRegistry();
-  const body = (await req.json()) as Partial<SignedCallInput & CovenantRequest>;
-  if (
-    body.connection_id &&
-    body.agent_id &&
-    body.agent_signature &&
-    body.capability_id &&
-    body.action &&
-    body.timestamp &&
-    body.context
-  ) {
-    const response = await engine.runtime.process(body as CovenantRequest, {
-      approvals: body.approvals,
-      bypass: body.bypass,
-    });
+  if (engine.registryStatus().state !== "ready") {
+    return NextResponse.json({ error: "Registry integration is unavailable; request denied" }, { status: 503 });
+  }
+
+  const body = parsed.data;
+  if ("agent_signature" in body) {
+    const response = await engine.runtime.process(body as CovenantRequest);
     return NextResponse.json(response);
   }
-  if (!body.agent_id || !body.capability_id || !body.action) {
-    return NextResponse.json(
-      { error: "agent_id, capability_id and action are required" },
-      { status: 400 },
-    );
-  }
   if (!engine.hasSigningKey(body.agent_id)) {
-    return NextResponse.json(
-      {
-        error: "server signing key not configured for agent",
-        proof: engine.registryStatus(),
-        remediation: "Send a fully signed CovenantRequest or register a real server-managed agent key.",
-      },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: "server signing key not configured for agent" }, { status: 401 });
   }
-  const response = await engine.signAndProcess({
-    agent_id: body.agent_id,
-    capability_id: body.capability_id,
-    action: body.action,
-    input: body.input ?? {},
-    approvals: body.approvals,
-    bypass: body.bypass,
-    tamper: body.tamper,
-  });
+  const response = await engine.signAndProcess(body as SignedCallInput);
   return NextResponse.json(response);
 }

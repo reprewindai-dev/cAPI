@@ -1,5 +1,5 @@
-import { randomUUID } from "crypto";
 import type { ProposedActionV1, DecisionV1, CappoAuthorizationReference } from "./outly-types";
+import { IntegrationUnavailable, requireIntegration } from "./integrations";
 
 /**
  * Deterministic Gate for Outly Shadow-Mode
@@ -40,16 +40,11 @@ export async function evaluateProposedAction(action: ProposedActionV1): Promise<
     // Lane 3: High risk, REQUIRES CAPPO Consult
     human_review_required = true;
     
-    // Perform simulated CAPPO consult since this is a shadow-mode pilot
-    // In production, this would make an HTTP call to cappo-backend
-    const isCappoApproved = simulateCappoConsult(action);
-    
-    if (isCappoApproved) {
+    const authorization = await requestCappoAuthorization(action);
+
+    if (authorization) {
       decision = 'ALLOW';
-      cappo_authorization_reference = {
-        authorization_id: `cappo_auth_${randomUUID()}`,
-        lane: 3,
-      };
+      cappo_authorization_reference = authorization;
     } else {
       decision = 'DENY';
     }
@@ -81,13 +76,17 @@ export async function evaluateProposedAction(action: ProposedActionV1): Promise<
   return decisionObj;
 }
 
-/**
- * Simulated CAPPO consult for Lane-3 shadow-mode.
- */
-function simulateCappoConsult(action: ProposedActionV1): boolean {
-  // If the action involves something destructive or very high budget, maybe deny.
-  if (action.requested_side_effect.action.toLowerCase().includes('delete')) {
-    return false;
-  }
-  return true;
+async function requestCappoAuthorization(action: ProposedActionV1): Promise<CappoAuthorizationReference | null> {
+  const base = requireIntegration("CAPPO decision", process.env.CAPPO_BACKEND_URL);
+  const key = process.env.CAPPO_INTERNAL_EXEC_KEY?.trim();
+  if (!key) throw new IntegrationUnavailable("CAPPO decision credentials are not configured");
+  const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/execution/authorize`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify(action),
+  });
+  if (!response.ok) throw new IntegrationUnavailable(`CAPPO authorization failed with HTTP ${response.status}`);
+  const body = await response.json() as { decision?: string; authorization_id?: string; lane?: 1 | 2 | 3; decision_hash?: string };
+  if (body.decision !== "APPROVED" || !body.authorization_id) return null;
+  return { authorization_id: body.authorization_id, lane: body.lane ?? 3, decision_hash: body.decision_hash };
 }

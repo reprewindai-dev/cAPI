@@ -1,38 +1,31 @@
 import { NextResponse } from "next/server";
-import type { ActionOutcomeV1 } from "@/lib/covenant/outly-types";
+import { IntegrationUnavailable, postIntegration, requireIntegration } from "@/lib/covenant/integrations";
+import { outcomeSchema, readJson } from "@/lib/covenant/validation";
 
 export async function POST(req: Request) {
+  const parsed = await readJson(req, outcomeSchema);
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
   try {
-    const payload = await req.json() as ActionOutcomeV1;
-
-    // Validate minimum fields
-    if (!payload.action_id || !payload.execution_id || !payload.outcome_status) {
-      return NextResponse.json(
-        { error: "Invalid ActionOutcomeV1 payload" },
-        { status: 400 }
-      );
+    const pglUrl = requireIntegration("PGL", process.env.PGL_LEDGER_URL);
+    const payload = parsed.data;
+    const anchored = await postIntegration(`${pglUrl}/api/v1/ledger/events`, {
+      agent_id: payload.tenant_id,
+      event_type: "custom",
+      actor: payload.tenant_id,
+      summary: `outly outcome ${payload.outcome_status}: ${payload.action_id}`.slice(0, 255),
+      details: { source: "capi-outly", kind: "outcome", outcome: payload },
+      idempotency_key: payload.idempotency_key,
+    }, process.env.PGL_LEDGER_API_KEY ? { "x-api-key": process.env.PGL_LEDGER_API_KEY } : undefined);
+    if (typeof anchored.event_id !== "string" || typeof anchored.event_hash !== "string") {
+      throw new IntegrationUnavailable("PGL returned no verifiable evidence reference");
     }
-
-    // 1. Evidence Anchoring (Anchor the Outcome)
-    // Fill in the evidence reference that we just created
-    payload.evidence_reference = {
-      evidence_id: `ev_outcome_${payload.outcome_status.toLowerCase()}_${Date.now()}`,
-      entry_hash: "mock_entry_hash_002",
-      ledger: "pgl-veklom"
-    };
-
-    // Note: Asynchronous PGL Forward would go here.
-    if (process.env.PGL_LEDGER_URL) {
-      console.log(`[Shadow-Mode] Forwarding outcome ${payload.outcome_status} for action ${payload.action_id} to PGL...`);
-    }
-
     return NextResponse.json({
-      status: "received",
-      evidence_reference: payload.evidence_reference
+      status: "anchored",
+      evidence_reference: { evidence_id: anchored.event_id, entry_hash: anchored.event_hash, ledger: "pgl" },
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Outly Outcome Ingest Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    const status = error instanceof IntegrationUnavailable ? 503 : 502;
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Outly outcome failed" }, { status });
   }
 }

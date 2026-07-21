@@ -65,7 +65,7 @@ export interface DecisionV1 {
   modifications?: DecisionModification[];
   human_review_required: boolean;
   cappo_authorization_reference?: CappoAuthorizationReference | null;
-  evidence_reference: EvidenceReference;
+  evidence_reference: EvidenceReference | null;
   timestamp: string;
   expires_at: string;
 }

@@ -19,7 +19,7 @@ import { generateNonce, hmacHashObject } from "./crypto";
 // Config — pulled from env so nothing is hardcoded
 // ---------------------------------------------------------------------------
 
-const BYOS_MCP_GATEWAY = process.env.BYOS_MCP_GATEWAY_URL ?? "https://api.veklom.com/api/v1/mcp";
+const BYOS_MCP_GATEWAY = process.env.BYOS_MCP_GATEWAY_URL ?? "";
 const BYOS_API_KEY      = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const EXECUTION_TIMEOUT = Number(process.env.COVENANT_EXEC_TIMEOUT_MS ?? 10_000);
 const ALLOW_LOCAL_EXECUTION = process.env.COVENANT_ALLOW_LOCAL_EXECUTION === "true";
@@ -91,8 +91,7 @@ export class MCPBridge {
       } else if (method === "http" || method === "https") {
         ({ output, retried } = await MCPBridge.callHTTP(capability, request));
       } else if (ALLOW_LOCAL_EXECUTION) {
-        output  = MCPBridge.localStub(capability, request);
-        retried = 0;
+        throw new Error("local capability execution is not an evidence-backed integration");
       } else {
         output = {
           ok: false,
@@ -132,6 +131,9 @@ export class MCPBridge {
     capability: CapabilityIdentity,
     request:    CovenantRequest,
   ): Promise<{ output: Record<string, unknown>; retried: number }> {
+    if (!BYOS_MCP_GATEWAY || !BYOS_API_KEY) {
+      throw new Error("BYOS MCP integration is not configured");
+    }
     const toolName = capability.endpoint.replace("mcp://", ""); // e.g. "github.create_issue"
 
     const payload: MCPToolCallPayload = {
@@ -228,6 +230,8 @@ export class MCPBridge {
     capability: CapabilityIdentity,
     request:    CovenantRequest,
   ): Promise<{ output: Record<string, unknown>; retried: number }> {
+    const cappoKey = process.env.CAPPO_INTERNAL_EXEC_KEY?.trim();
+    if (!cappoKey) throw new Error("CAPPO_INTERNAL_EXEC_KEY is not configured");
     const controller = new AbortController();
     const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
 
@@ -265,7 +269,7 @@ export class MCPBridge {
         "Content-Type":  "application/json",
         "X-Covenant-Id": request.connection_id,
         "X-Agent-Id":    request.agent_id,
-        "X-API-Key":     process.env.CAPPO_INTERNAL_EXEC_KEY || "cappo_internal_exec_key_veklom_2026",
+        "X-API-Key":     cappoKey,
       },
       body:   JSON.stringify(cappoPayload),
       signal: controller.signal,
@@ -276,21 +280,4 @@ export class MCPBridge {
     return { output: { ok: res.ok, status: res.status, ...body }, retried: 0 };
   }
 
-  // -------------------------------------------------------------------------
-  // Local stub — dev/test only, same shape as before
-  // -------------------------------------------------------------------------
-
-  private static localStub(
-    cap:     CapabilityIdentity,
-    request: CovenantRequest,
-  ): Record<string, unknown> {
-    const base = { capability: cap.capability_name, method: "local", action: request.action };
-    switch (cap.metadata.category) {
-      case "database": return { ...base, rows: 3,    query_ok: true,    sample: request.input };
-      case "tool":     return { ...base, ok: true,   result: `executed ${request.action}`, echo: request.input };
-      case "service":  return { ...base, status: 200, body: { ok: true, input: request.input } };
-      case "agent":    return { ...base, delegated: true, sub_result: "completed" };
-      default:         return { ...base, ok: true };
-    }
-  }
 }
