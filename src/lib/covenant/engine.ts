@@ -43,8 +43,6 @@ export class CovenantEngine {
   private registrySyncInFlight: Promise<void> | null = null;
   private registrySkipped: string[] = [];
 
-  // SDK Projection Layers: Last-known-good cache
-  private lastKnownGood = new Map<string, Record<string, unknown>>();
 
   constructor() {
     if (process.env.COVENANT_ENABLE_DEMO_SEED === "true") {
@@ -99,24 +97,6 @@ export class CovenantEngine {
       approvals: call.approvals,
       bypass: call.bypass,
     });
-
-    // SDK Projection Layers: Fail closed & Last-known-good interception
-    if (response.status === 'authorized' && response.result?.output) {
-      this.lastKnownGood.set(call.capability_id, response.result.output);
-    } else if (response.status === 'error') {
-      const lkg = this.lastKnownGood.get(call.capability_id);
-      if (lkg) {
-        // Project Last-known-good state
-        response.status = 'authorized'; // Projected success
-        if (response.result) {
-          response.result.output = { ...lkg, _projected: true, _original_error: response.error };
-        } else {
-          response.result = { output: { ...lkg, _projected: true, _original_error: response.error }, output_hash: '', execution_time_ms: 0 };
-        }
-        if (response.error) delete response.error;
-      }
-      // If no LKG, it naturally fails closed by returning the error response.
-    }
 
     return response;
   }

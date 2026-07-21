@@ -1,27 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+  const base = process.env.PGL_LEDGER_URL?.trim();
+  if (!base) return NextResponse.json({ error: "PGL evidence integration unavailable" }, { status: 503 });
+  if (!params.id || params.id.length > 256) return NextResponse.json({ error: "Invalid evidence id" }, { status: 400 });
 
-  // Mock retrieving evidence from PGL
-  const mockEvidence = {
-    evidence_id: id,
-    connection_id: 'conn-mock-1234',
-    timestamp: new Date().toISOString(),
-    who: {
-      agent_id: 'ag-mock-999',
-      owner_id: 'usr-mock-111'
-    },
-    what: {
-      capability_id: 'cap-1',
-      action: 'read'
-    },
-    result: {
-      status: 'authorized',
-      output_hash: 'mock-hash-base64',
-      execution_time_ms: 120
-    }
-  };
-
-  return NextResponse.json(mockEvidence);
+  try {
+    const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/ledger/events/${encodeURIComponent(params.id)}`, {
+      headers: { accept: "application/json", "x-api-key": process.env.PGL_LEDGER_API_KEY ?? "" },
+      cache: "no-store",
+    });
+    if (response.status === 404) return NextResponse.json({ error: "Evidence not found" }, { status: 404 });
+    if (!response.ok) return NextResponse.json({ error: "PGL evidence lookup failed" }, { status: 503 });
+    return NextResponse.json(await response.json());
+  } catch {
+    return NextResponse.json({ error: "PGL evidence lookup failed" }, { status: 503 });
+  }
 }

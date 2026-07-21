@@ -1,26 +1,15 @@
-import { NextResponse } from 'next/server';
-import { generateSnapshot } from '@/lib/mcp/snapshot';
-
-const MOCK_CAPABILITIES = [
-  { id: 'cap-1', name: 'read-database', description: 'Read records from the main db', trust_minimum: 10 },
-  { id: 'cap-2', name: 'write-database', description: 'Write records to the main db', trust_minimum: 50 },
-  { id: 'cap-3', name: 'process-payment', description: 'Execute a payment settlement', trust_minimum: 90 }
-];
+import { NextResponse } from "next/server";
+import { requireIntegration } from "@/lib/covenant/integrations";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const agentId = searchParams.get('agent_id');
-
-  // If we had a real DB, we would filter by agent_id's allowed scopes here.
-  const { snapshot, signature } = generateSnapshot(MOCK_CAPABILITIES, agentId);
-
-  return NextResponse.json({
-    data: snapshot,
-    signature: signature,
-    total: snapshot.capabilities.length
-  }, {
-    headers: {
-      'X-Capability-Signature': signature
-    }
-  });
+  const agentId = new URL(request.url).searchParams.get("agent_id")?.trim();
+  if (!agentId || agentId.length > 128) return NextResponse.json({ error: "agent_id is required and must be bounded" }, { status: 400 });
+  try {
+    const base = requireIntegration("capability registry", process.env.COVENANT_CAPABILITIES_URL);
+    const response = await fetch(`${base}?agent_id=${encodeURIComponent(agentId)}`, { headers: { accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) return NextResponse.json({ error: "Capability registry unavailable" }, { status: 503 });
+    return NextResponse.json(await response.json());
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Capability registry unavailable" }, { status: 503 });
+  }
 }

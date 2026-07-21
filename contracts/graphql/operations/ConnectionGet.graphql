@@ -1,4 +1,4 @@
-# capability: connection.get | lane: 1 | version: 1.0.0
+# capability: connection.read | lane: 1 | version: 1.0.0
 query ConnectionGet($id: ID!) {
   connection(id: $id) {
     id

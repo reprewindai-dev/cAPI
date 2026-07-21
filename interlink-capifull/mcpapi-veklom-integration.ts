@@ -311,7 +311,7 @@ export class VeklomMCPAPIIntegration {
       } else {
         // Wire x402 Payment Trigger: Automate x402 settlement via pgl_hash
         // This simulates hooking the PGL entry hash into the settlement process to automatically deduct the required VNP micro-stake or balance.
-        await this.triggerX402Settlement(entryHash, 0.05); // Default 0.05 USDC micro-stake
+        await this.triggerX402Settlement(entryHash, 50000); // Default 0.05 USDC = 50000 micro-units (6 decimals)
       }
     } catch (e) {
       console.error(`PGL sync error:`, e);
@@ -322,13 +322,18 @@ export class VeklomMCPAPIIntegration {
 
   // ========== X402 SETTLEMENT TRIGGER ==========
 
-  async triggerX402Settlement(pgl_hash: string, amount_usdc: number): Promise<boolean> {
+  async triggerX402Settlement(pgl_hash: string, amount_minor: number): Promise<boolean> {
+    if (!Number.isSafeInteger(amount_minor) || amount_minor < 0) {
+      console.error(`[x402] Invalid settlement amount_minor: ${amount_minor}`);
+      return false;
+    }
+
     const x402BaseUrl = process.env.X402_API_URL || "https://api.veklom.com";
     const apiKey = process.env.X402_API_KEY || "";
     
     const payload = {
       pgl_hash: pgl_hash,
-      amount_usdc: amount_usdc,
+      amount_minor: amount_minor,
       currency: "USDC",
       network: "base"
     };
