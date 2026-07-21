@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "interlink-runtime",
+    "interlink-mcpapi",
+]
+resolver = "2"
