@@ -1,0 +1,29 @@
+[package]
+name = "interlink-runtime"
+version = "2.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+axum = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+interlink-mcpapi = { path = "../interlink-mcpapi" }
+jsonschema = "0.17"
+jsonwebtoken = "9.0"
+dashmap = "5.5"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+anyhow = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+hex = "0.4"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
