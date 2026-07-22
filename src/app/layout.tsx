@@ -40,7 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${mono.variable}`}>
-      <body className="bg-field font-display antialiased">
+      <body className="font-display antialiased bg-[#0B0C0E] text-[#D1D5DB]">
         <Shell>{children}</Shell>
       </body>
     </html>

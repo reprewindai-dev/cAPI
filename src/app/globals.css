@@ -41,6 +41,8 @@ body {
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 46px 46px;
   mask-image: radial-gradient(1200px 800px at 50% 0%, black, transparent 80%);
+  background: #0B0C0E;
+  color: #D1D5DB;
 }
 
 .panel {

@@ -109,6 +109,35 @@ export const policyUpdateSchema = z.object({
 
 export const policyToggleSchema = z.object({ enabled: z.boolean() }).strict();
 
+const registeredCapabilitySchema = z.object({
+  name: boundedString(256),
+  description: boundedString(2048).optional(),
+  endpoint: boundedString(1024).optional(),
+  input_schema: boundedRecord.optional(),
+  category: z.enum(["tool", "service", "agent", "database", "human", "sensor"]).optional(),
+  risk_level: z.enum(["low", "medium", "high", "critical"]).optional(),
+  requires_approval: z.boolean().optional(),
+}).strict();
+
+/**
+ * Accepts capabilities either as bare names (declarations) or as full objects.
+ * lockerphycer and other services register with `capabilities: ["identity", …]`.
+ */
+const capabilityEntrySchema = z.union([boundedString(256), registeredCapabilitySchema]);
+
+export const serviceRegistrationSchema = z.object({
+  service_name: boundedString(128),
+  base_url: boundedString(1024).optional(),
+  public_key: boundedString(2048).optional(),
+  telemetry_supported: z.boolean().optional(),
+  capabilities: z.array(capabilityEntrySchema).max(512).optional(),
+  metadata: boundedRecord.optional(),
+}).strict();
+
+export const heartbeatSchema = z.object({
+  service_name: boundedString(128),
+}).strict();
+
 const contextSchema = z.object({
   trace_id: boundedString(256).optional(),
   user_context: boundedRecord.optional(),
