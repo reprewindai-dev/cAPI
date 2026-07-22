@@ -15,32 +15,8 @@ body {
 body {
   font-feature-settings: "ss01", "cv01";
   -webkit-font-smoothing: antialiased;
-}
-
-/* Faint engineering grid + signal aurora behind everything. */
-.bg-field {
-  position: relative;
-}
-.bg-field::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background:
-    radial-gradient(900px 600px at 78% -8%, rgba(124, 92, 255, 0.14), transparent 60%),
-    radial-gradient(1100px 700px at 6% 4%, rgba(52, 231, 197, 0.12), transparent 55%),
-    #05070b;
-}
-.bg-field::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(1200px 800px at 50% 0%, black, transparent 80%);
+  background: #0B0C0E;
+  color: #D1D5DB;
 }
 
 .panel {
