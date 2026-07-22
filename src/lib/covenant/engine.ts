@@ -14,6 +14,12 @@ import {
 } from "./crypto";
 import { CovenantRuntime, type ProcessOptions } from "./runtime";
 import { loadConfiguredRegistry, type CovenantRegistryDocument } from "./registry";
+import {
+  ServiceRegistry,
+  type RegisterResult,
+  type ServiceRegistration,
+  type ServiceRegistrationInput,
+} from "./service-registry";
 import { seedFleet } from "./seed";
 import type { CovenantRequest, CovenantResponse, RegistryProofState } from "./types";
 
@@ -31,6 +37,10 @@ export interface SignedCallInput {
 
 export class CovenantEngine {
   readonly runtime = new CovenantRuntime();
+  /** Live catalog of self-registered downstream services. */
+  readonly services = new ServiceRegistry();
+  /** Synchronous mirror of the service registry so snapshots stay non-blocking. */
+  private serviceCache: ServiceRegistration[] = [];
   /** agent_id -> private key (base64 PKCS8). Server-side only. */
   private keystore = new Map<string, string>();
   private registryProof: RegistryProofState = {
@@ -105,6 +115,42 @@ export class CovenantEngine {
     return { ...this.registryProof, skipped: this.registrySkipped };
   }
 
+  /**
+   * Register a downstream service and mirror its executable capabilities into
+   * the runtime capability graph. Self-registered capabilities are marked
+   * self-attested (Tier1) — a declaration, not a cryptographic proof.
+   */
+  async registerService(
+    input: ServiceRegistrationInput,
+    authenticated: boolean,
+  ): Promise<RegisterResult> {
+    const result = await this.services.register(input, authenticated);
+    for (const cap of result.executableCapabilities) {
+      this.runtime.registerCapability(cap);
+    }
+    this.serviceCache = await this.services.list();
+    this.registryProof = {
+      state: "ready",
+      source: "self-registration",
+      detail:
+        `${result.registration.service_name} registered ` +
+        `${result.executableCapabilities.length} executable + ` +
+        `${result.declaredOnly.length} declared capability(ies)`,
+      checked_at: new Date().toISOString(),
+    };
+    return result;
+  }
+
+  async heartbeatService(serviceName: string): Promise<ServiceRegistration | undefined> {
+    const updated = await this.services.heartbeat(serviceName);
+    if (updated) this.serviceCache = await this.services.list();
+    return updated;
+  }
+
+  listServices(): ServiceRegistration[] {
+    return this.serviceCache;
+  }
+
   registerDocument(document: CovenantRegistryDocument): void {
     document.agents?.forEach((agent) => {
       const { private_key_b64: privateKeyB64, ...identity } = agent;
@@ -124,8 +170,12 @@ export class CovenantEngine {
 
     this.registrySyncInFlight = (async () => {
       const result = await loadConfiguredRegistry();
-      this.registryProof = result.proof;
-      this.registrySkipped = result.skipped;
+      // An unconfigured pull-registry must not erase live self-registration state.
+      const nothingConfigured = result.proof.source === "none";
+      if (!(nothingConfigured && this.serviceCache.length > 0)) {
+        this.registryProof = result.proof;
+        this.registrySkipped = result.skipped;
+      }
       this.registrySyncAt = Date.now();
       if (result.document) this.registerDocument(result.document);
     })().finally(() => {

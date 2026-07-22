@@ -47,7 +47,7 @@ export interface AgentIdentity {
 
 export interface RegistryProofState {
   state: "ready" | "degraded" | "needs_proof";
-  source: "configured-registry" | "byos-registry" | "signed-runtime" | "demo-seed" | "none";
+  source: "configured-registry" | "byos-registry" | "signed-runtime" | "self-registration" | "demo-seed" | "none";
   detail: string;
   checked_at: string;
 }
