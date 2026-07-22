@@ -24,11 +24,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing or invalid capability snapshot signature" }, { status: 403 });
     }
 
-    const result = await postIntegration(cappoUrl, body, {
-      "x-capability-hash": snapshotHash,
-      "x-capability-signature": snapshotSignature,
-    });
-    return NextResponse.json(result);
+    // Determine if this is a native MCP execution or a proxy integration
+    if (body.capability_id && body.capability_id.startsWith("mcp::")) {
+      const { mcpOrchestrator } = await import("@/lib/mcp/orchestrator");
+      const result = await mcpOrchestrator.executeTool(body.capability_id, body.input);
+      return NextResponse.json({
+        connection_id: body.connection_id,
+        status: "success",
+        data: result,
+      });
+    } else {
+      const result = await postIntegration(cappoUrl, body, {
+        "x-capability-hash": snapshotHash,
+        "x-capability-signature": snapshotSignature,
+      });
+      return NextResponse.json(result);
+    }
   } catch (error) {
     const status = error instanceof IntegrationUnavailable ? 503 : 502;
     return NextResponse.json({ error: error instanceof Error ? error.message : "CAPPO execution failed" }, { status });

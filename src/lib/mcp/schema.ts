@@ -24,5 +24,6 @@ export interface McpServerInstance {
   descriptor: McpServerDescriptor;
   status: McpServerStatus;
   tools: any[];
+  client?: any; // The connected MCP SDK Client instance
   error?: string;
 }
