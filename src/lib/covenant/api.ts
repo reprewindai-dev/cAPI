@@ -5,6 +5,7 @@
 
 import { getEngine } from "./engine";
 import { hashObject, signMessage } from "./crypto";
+import type { ServiceRegistration } from "./service-registry";
 import type {
   AgentIdentity,
   CapabilityIdentity,
@@ -53,6 +54,7 @@ export interface Snapshot {
   anomalies: ReturnType<ReturnType<typeof getEngine>["runtime"]["safety"]["listAnomalies"]>;
   quarantine: ReturnType<ReturnType<typeof getEngine>["runtime"]["safety"]["listQuarantine"]>;
   cost: CostAllocationRecord[];
+  services: ServiceRegistration[];
 }
 
 export function buildAgentView(agent_id: string): AgentView | undefined {
@@ -107,6 +109,7 @@ export function buildSnapshot(): Snapshot {
     anomalies: rt.safety.listAnomalies(60),
     quarantine,
     cost: rt.intelligence.listRecords(60),
+    services: engine.listServices(),
   };
 }
 
