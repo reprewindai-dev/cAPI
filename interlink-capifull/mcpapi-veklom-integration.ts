@@ -308,10 +308,6 @@ export class VeklomMCPAPIIntegration {
 
       if (!response.ok) {
         console.error(`PGL sync failed: ${response.status} ${response.statusText}`);
-      } else {
-        // Wire x402 Payment Trigger: Automate x402 settlement via pgl_hash
-        // This simulates hooking the PGL entry hash into the settlement process to automatically deduct the required VNP micro-stake or balance.
-        await this.triggerX402Settlement(entryHash, 50000); // Default 0.05 USDC = 50000 micro-units (6 decimals)
       }
     } catch (e) {
       console.error(`PGL sync error:`, e);
@@ -322,7 +318,12 @@ export class VeklomMCPAPIIntegration {
 
   // ========== X402 SETTLEMENT TRIGGER ==========
 
-  async triggerX402Settlement(pgl_hash: string, amount_minor: number): Promise<boolean> {
+  async triggerX402Settlement(pgl_hash: string, amount_minor: number, cappo_receipt: any, idempotency_key: string): Promise<boolean> {
+    if (!cappo_receipt || cappo_receipt.status !== "APPROVED") {
+      console.error(`[x402] Settlement rejected: CAPPO authorization missing or not APPROVED for ${pgl_hash}`);
+      return false;
+    }
+
     if (!Number.isSafeInteger(amount_minor) || amount_minor < 0) {
       console.error(`[x402] Invalid settlement amount_minor: ${amount_minor}`);
       return false;
@@ -335,11 +336,13 @@ export class VeklomMCPAPIIntegration {
       pgl_hash: pgl_hash,
       amount_minor: amount_minor,
       currency: "USDC",
-      network: "base"
+      network: "base",
+      cappo_receipt: cappo_receipt,
+      idempotency_key: idempotency_key
     };
 
     try {
-      console.log(`[x402] Triggering automated settlement for PGL Hash: ${pgl_hash}`);
+      console.log(`[x402] Triggering authorized settlement for PGL Hash: ${pgl_hash}`);
       const response = await fetch(`${x402BaseUrl}/api/v1/x402/settle`, {
         method: "POST",
         headers: {

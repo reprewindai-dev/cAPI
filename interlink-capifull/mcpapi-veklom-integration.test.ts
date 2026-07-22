@@ -22,15 +22,29 @@ describe("VeklomMCPAPIIntegration settlement amounts", () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await expect(
-        integration.triggerX402Settlement("entry-hash", amount_minor),
+        integration.triggerX402Settlement("entry-hash", amount_minor, { status: "APPROVED" }, "idem-123"),
       ).resolves.toBe(false);
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
 
-  it("accepts a valid amount_minor and sends integer minor units", async () => {
+  it("rejects when CAPPO authorization is missing or not APPROVED", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
     await expect(
-      integration.triggerX402Settlement("entry-hash", 50000),
+      integration.triggerX402Settlement("entry-hash", 50000, { status: "REJECTED" }, "idem-123"),
+    ).resolves.toBe(false);
+
+    await expect(
+      integration.triggerX402Settlement("entry-hash", 50000, null, "idem-123"),
+    ).resolves.toBe(false);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid amount_minor, approved CAPPO receipt, and sends integer minor units", async () => {
+    await expect(
+      integration.triggerX402Settlement("entry-hash", 50000, { status: "APPROVED", signature: "sig-123" }, "idem-key"),
     ).resolves.toBe(true);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -38,6 +52,8 @@ describe("VeklomMCPAPIIntegration settlement amounts", () => {
     expect(JSON.parse(request.body)).toMatchObject({
       pgl_hash: "entry-hash",
       amount_minor: 50000,
+      cappo_receipt: { status: "APPROVED", signature: "sig-123" },
+      idempotency_key: "idem-key",
     });
   });
 });
