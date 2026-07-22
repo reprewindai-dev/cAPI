@@ -8,8 +8,8 @@
 
 html,
 body {
-  background: #05070b;
-  color: #e6ebf2;
+  background: #0b0c0e;
+  color: #d1d5db;
 }
 
 body {
@@ -27,9 +27,9 @@ body {
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(900px 600px at 78% -8%, rgba(124, 92, 255, 0.14), transparent 60%),
-    radial-gradient(1100px 700px at 6% 4%, rgba(52, 231, 197, 0.12), transparent 55%),
-    #05070b;
+    radial-gradient(900px 600px at 78% -8%, rgba(37, 99, 235, 0.1), transparent 60%),
+    radial-gradient(1100px 700px at 6% 4%, rgba(30, 64, 175, 0.08), transparent 55%),
+    #0b0c0e;
 }
 .bg-field::after {
   content: "";
@@ -37,16 +37,16 @@ body {
   inset: 0;
   z-index: -1;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 46px 46px;
   mask-image: radial-gradient(1200px 800px at 50% 0%, black, transparent 80%);
 }
 
 .panel {
-  background: linear-gradient(180deg, rgba(22, 28, 40, 0.7), rgba(8, 11, 17, 0.7));
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  background: #0f1115;
+  border: 1px solid #23272e;
+  border-radius: 8px;
   backdrop-filter: blur(8px);
 }
 
@@ -57,7 +57,7 @@ body {
 }
 
 .hairline {
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: #23272e;
 }
 
 .chip {
@@ -84,4 +84,18 @@ body {
 /* monospace numeric tabular alignment for telemetry */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+.control {
+  width: 100%;
+  border: 1px solid #23272e;
+  border-radius: 0.375rem;
+  background: #0b0c0e;
+  padding: 0.5rem 0.75rem;
+  color: white;
+  outline: none;
+}
+
+.control:focus {
+  border-color: rgb(59 130 246 / 0.65);
 }
