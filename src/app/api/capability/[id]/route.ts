@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
+  const params = await context.params;
   const auth = requireAdminToken(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const body = (await req.json()) as Partial<CapabilityIdentity>;

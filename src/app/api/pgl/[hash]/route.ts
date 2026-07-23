@@ -5,8 +5,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { hash: string } },
+  context: { params: Promise<{ hash: string }> },
 ) {
+  const params = await context.params;
   const engine = getEngine();
   await engine.syncRegistry();
   const evidence = engine.runtime.getEvidence(params.hash);
