@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const start = Date.now();
     try {
       // Attempting to ping cappo-backend / health endpoint
-      await fetch('http://cappo-backend-node:8000/health', { signal: AbortSignal.timeout(2000) }).catch(() => {});
+      await fetch('http://cappo-backend-node:8002/health', { signal: AbortSignal.timeout(2000) }).catch(() => {});
     } catch (e) {
       // Ignore failure, we just want the latency
     }
@@ -31,8 +31,8 @@ export async function POST(request: Request) {
     logs.push(`[sub-agent-gamma] No schema drift detected. Committing cryptographic signature to Gnomledger...`);
     
     try {
-      // Gnomledger runs on 8000 in Docker, locally might be 8000 or 8001
-      const pglRes = await fetch('http://gnomledger-api-1:8000/api/tools/mint_settlement_evidence_tool', {
+      // Gnomledger runs on 8001
+      const pglRes = await fetch('http://gnomledger-api-1:8001/api/tools/mint_settlement_evidence_tool', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
