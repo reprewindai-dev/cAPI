@@ -16,7 +16,10 @@ export function requireAdminToken(req: NextRequest): { ok: true } | { ok: false;
       error: "COVENANT_ADMIN_TOKEN is not configured; mutation route is locked",
     };
   }
-  const provided = req.headers.get("x-covenant-admin-token") || req.headers.get("x-api-key") || "";
+  const authorization = req.headers.get("authorization") || "";
+  const provided = authorization.toLowerCase().startsWith("bearer ")
+    ? authorization.slice(7).trim()
+    : req.headers.get("x-covenant-admin-token") || req.headers.get("x-api-key") || "";
   if (!safeEqual(provided, expected)) {
     return { ok: false, status: 401, error: "Invalid or missing Covenant admin token" };
   }

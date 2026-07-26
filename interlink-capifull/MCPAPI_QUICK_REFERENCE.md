@@ -361,7 +361,7 @@ LOG_LEVEL=info
 LOG_FORMAT=json
 
 # Server
-PORT=3002
+PORT=3003
 HOST=0.0.0.0
 WORKERS=4
 ```
@@ -650,4 +650,3 @@ Everything else flows from those five questions.
 **Status:** Locked & Production Ready  
 **Created:** June 12, 2026  
 **By:** Veklom Architecture Team
-

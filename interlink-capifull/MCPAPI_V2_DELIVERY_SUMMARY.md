@@ -349,7 +349,7 @@ Week 8: Production
 
 ```bash
 docker-compose up -d
-# Access at http://localhost:3002
+# Access at http://localhost:3003
 # Grafana at http://localhost:3001
 ```
 
@@ -523,4 +523,3 @@ Everything you need to build, deploy, and operate a **full-stack AI governance s
 **Date:** June 12, 2026  
 **Status:** COMPLETE  
 **Next Action:** Build & Deploy
-

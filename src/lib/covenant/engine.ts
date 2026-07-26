@@ -147,6 +147,14 @@ export class CovenantEngine {
     return updated;
   }
 
+  async deleteService(serviceName: string): Promise<boolean> {
+    const existing = await this.services.get(serviceName);
+    if (!existing) return false;
+    await this.services.delete(serviceName);
+    this.serviceCache = await this.services.list();
+    return true;
+  }
+
   listServices(): ServiceRegistration[] {
     return this.serviceCache;
   }

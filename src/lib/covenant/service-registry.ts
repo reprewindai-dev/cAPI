@@ -19,6 +19,7 @@
  */
 
 import type { CapabilityCategory, CapabilityIdentity, Severity } from "./types";
+import { createClient } from "redis";
 
 export type CapabilityMethodPrefix = "mcp" | "http" | "https";
 
@@ -63,7 +64,7 @@ export interface RegistryStore {
   delete(serviceName: string): Promise<void>;
 }
 
-/** Process-local store. Durable enough for a single runtime; replaced by Redis in a later phase. */
+/** Process-local fallback for local development without a configured Redis URL. */
 export class InMemoryRegistryStore implements RegistryStore {
   private services = new Map<string, ServiceRegistration>();
 
@@ -79,6 +80,90 @@ export class InMemoryRegistryStore implements RegistryStore {
   async delete(serviceName: string): Promise<void> {
     this.services.delete(serviceName);
   }
+}
+
+/**
+ * Redis-backed catalog. Redis key expiry is derived from each registration's
+ * expires_at so the persistence layer follows the same TTL contract as the
+ * in-memory registry.
+ */
+export class RedisRegistryStore implements RegistryStore {
+  private readonly client = createClient({ url: this.url });
+  private connectPromise: Promise<void> | null = null;
+  private readonly indexKey = "covenant:registry:services";
+
+  constructor(private readonly url: string) {
+    this.client.on("error", (error) => {
+      console.error("[registry] Redis error", error instanceof Error ? error.message : "unknown error");
+    });
+  }
+
+  private async connected(): Promise<void> {
+    if (this.client.isOpen) return;
+    if (!this.connectPromise) {
+      this.connectPromise = this.client.connect().then(() => undefined).finally(() => {
+        this.connectPromise = null;
+      });
+    }
+    await this.connectPromise;
+  }
+
+  private key(serviceName: string): string {
+    return `covenant:registry:service:${encodeURIComponent(serviceName)}`;
+  }
+
+  async put(registration: ServiceRegistration): Promise<void> {
+    await this.connected();
+    const ttlMs = Date.parse(registration.expires_at) - Date.now();
+    if (ttlMs <= 0) {
+      await this.delete(registration.service_name);
+      return;
+    }
+    await this.client
+      .multi()
+      .set(this.key(registration.service_name), JSON.stringify(registration), { PX: ttlMs })
+      .sAdd(this.indexKey, registration.service_name)
+      .exec();
+  }
+
+  async get(serviceName: string): Promise<ServiceRegistration | undefined> {
+    await this.connected();
+    const raw = await this.client.get(this.key(serviceName));
+    if (!raw) {
+      await this.client.sRem(this.indexKey, serviceName);
+      return undefined;
+    }
+    try {
+      return JSON.parse(raw) as ServiceRegistration;
+    } catch {
+      console.warn(`[registry] Ignoring malformed Redis record for ${serviceName}`);
+      await this.client.sRem(this.indexKey, serviceName);
+      return undefined;
+    }
+  }
+
+  async list(): Promise<ServiceRegistration[]> {
+    await this.connected();
+    const names = await this.client.sMembers(this.indexKey);
+    const records = await Promise.all(names.map((name) => this.get(name)));
+    return records.filter((record): record is ServiceRegistration => record !== undefined);
+  }
+
+  async delete(serviceName: string): Promise<void> {
+    await this.connected();
+    await this.client.multi().del(this.key(serviceName)).sRem(this.indexKey, serviceName).exec();
+  }
+}
+
+/**
+ * Redis is the durable production store when configured. Without REDIS_URL,
+ * retain the local in-memory behavior explicitly and log the degraded mode.
+ */
+export function createRegistryStore(): RegistryStore {
+  const redisUrl = process.env.REDIS_URL?.trim();
+  if (redisUrl) return new RedisRegistryStore(redisUrl);
+  console.warn("[registry] REDIS_URL is not configured; using in-memory registry store");
+  return new InMemoryRegistryStore();
 }
 
 function isExecutableEndpoint(endpoint: string | undefined): endpoint is string {
@@ -101,7 +186,7 @@ export class ServiceRegistry {
   private readonly ttlMs: number;
 
   constructor(
-    private readonly store: RegistryStore = new InMemoryRegistryStore(),
+    private readonly store: RegistryStore = createRegistryStore(),
     ttlMs = Number(process.env.CAPI_REGISTRY_TTL_MS ?? 300_000),
   ) {
     this.ttlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 300_000;
@@ -199,5 +284,9 @@ export class ServiceRegistry {
 
   async count(): Promise<number> {
     return (await this.store.list()).length;
+  }
+
+  async delete(serviceName: string): Promise<void> {
+    await this.store.delete(serviceName);
   }
 }
