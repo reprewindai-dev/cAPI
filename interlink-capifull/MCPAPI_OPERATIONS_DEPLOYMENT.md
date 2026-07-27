@@ -28,7 +28,7 @@ npm run dev
 # Run tests
 npm test
 
-# Start API server (http://localhost:3002)
+# Start API server (http://localhost:3003)
 npm start
 ```
 
@@ -42,7 +42,7 @@ docker build -t mcpapi-runtime:1.0.0 .
 docker run -d \
   -e DATABASE_URL=postgresql://localhost/mcpapi \
   -e REDIS_URL=redis://localhost:6379 \
-  -p 3002:3002 \
+  -p 3003:3003 \
   mcpapi-runtime:1.0.0
 ```
 
@@ -389,7 +389,7 @@ global:
 scrape_configs:
 - job_name: 'mcpapi'
   static_configs:
-    - targets: ['localhost:3002']
+    - targets: ['localhost:3003']
   metrics_path: '/metrics'
 ```
 
@@ -727,7 +727,7 @@ spec:
           name: ingress-nginx
     ports:
     - protocol: TCP
-      port: 3002
+      port: 3003
   egress:
   - to:
     - namespaceSelector: {}
@@ -946,4 +946,3 @@ kubectl scale deployment mcpapi-runtime --replicas=10 -n mcpapi
 - **Issues:** https://github.com/reprewindai-dev/mcpapi/issues
 - **Slack:** #mcpapi-ops
 - **On-call:** oncall@veklom.io
-
