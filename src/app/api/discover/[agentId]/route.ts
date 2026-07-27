@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { agentId: string } },
+  context: { params: Promise<{ agentId: string }> },
 ) {
+  const params = await context.params;
   await getEngine().syncRegistry();
   return NextResponse.json({ capabilities: discover(params.agentId) });
 }

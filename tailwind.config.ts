@@ -28,7 +28,8 @@ const config: Config = {
         mute: "#6B7689",
       },
       fontFamily: {
-        display: ["var(--font-display)", "sans-serif"],
+        display: ["var(--font-sans)", "sans-serif"],
+        sans: ["var(--font-sans)", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
       },
       boxShadow: {

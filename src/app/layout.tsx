@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { BRAND } from "@/lib/covenant/brand";
 import { Shell } from "@/components/Shell";
 
-const display = Space_Grotesk({
+const display = Inter({
   subsets: ["latin"],
-  variable: "--font-display",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -40,7 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${mono.variable}`}>
-      <body className="bg-field font-display antialiased">
+      <body className="font-display antialiased bg-[#0B0C0E] text-[#D1D5DB]">
         <Shell>{children}</Shell>
       </body>
     </html>

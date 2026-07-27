@@ -17,7 +17,8 @@ async function requireReady(req: NextRequest) {
   return { engine };
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const body = await readJson(req, policyToggleSchema);
   if ("error" in body) return NextResponse.json({ error: body.error }, { status: 400 });
   const ready = await requireReady(req);
@@ -26,7 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ policy_id: params.id, enabled: body.data.enabled });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const body = await readJson(req, policyUpdateSchema);
   if ("error" in body) return NextResponse.json({ error: body.error }, { status: 400 });
   const ready = await requireReady(req);

@@ -26,7 +26,6 @@ const proposedAction = {
   capability_id: "cap-1",
   capability_version: "1.0.0",
   policy_version: "1.0.0",
-  policy_version: "1.0.0",
   nonce: "nonce-1",
   idempotency_key: "idem-1",
   timestamp: new Date().toISOString(),
@@ -101,7 +100,7 @@ describe("cAPI and CAPPO-facing route validation", () => {
     }, headers), { params: { id: "p-1" } });
 
     expect(budgetResponse.status).toBe(400);
-    expect(policyResponse.status).toBe(400);
+    expect(policyResponse?.status).toBe(400);
   });
 
   it("rejects request payloads with bypass controls", async () => {

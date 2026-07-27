@@ -11,6 +11,6 @@ describe("POST /api/policy/:id", () => {
       headers: { "content-type": "application/json", "x-covenant-admin-token": "test-token" },
     }) as any, { params: { id: "policy-1" } });
 
-    expect(response.status).toBe(400);
+    expect(response?.status).toBe(400);
   });
 });

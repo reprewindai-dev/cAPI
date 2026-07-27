@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const base = process.env.PGL_LEDGER_URL?.trim();
   if (!base) return NextResponse.json({ error: "PGL evidence integration unavailable" }, { status: 503 });
   if (!params.id || params.id.length > 256) return NextResponse.json({ error: "Invalid evidence id" }, { status: 400 });
