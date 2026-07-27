@@ -1,0 +1,38 @@
+name: Mayhem DAST
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start cAPI Server in background
+        run: npm run dev &
+        env:
+          PORT: 3000
+          
+      - name: Wait for server to be ready
+        run: sleep 10
+
+      - name: Mayhem for API
+        uses: ForAllSecure/mapi-action@v2
+        with:
+          mayhem-token: ${{ secrets.MAYHEM_TOKEN }}
+          api-url: http://localhost:3000
+          api-spec: openapi.json
+          duration: 300

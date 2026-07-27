@@ -1,0 +1,4 @@
+version: '1.0'
+api:
+  openapi: openapi.json
+  target: http://localhost:3000
