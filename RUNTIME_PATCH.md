@@ -93,7 +93,7 @@ const response = await getEngine().signAndProcess({ ... });
 Add to `.env.local` (never commit):
 
 ```env
-BYOS_MCP_GATEWAY_URL=https://api.veklom.com/api/v1/mcp
+BYOS_MCP_GATEWAY_URL=http://n13gp1nhrcdp0hvazvbnlxru-213557155694:8088/api/v1/mcp
 BYOS_INTERNAL_API_KEY=your_internal_key_here
 COVENANT_EXEC_TIMEOUT_MS=10000
 ```

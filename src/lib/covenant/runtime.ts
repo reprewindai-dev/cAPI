@@ -34,6 +34,7 @@ import type {
   Policy,
   TrustScore,
 } from "./types";
+import { LockerphycerClient } from "./locker-client";
 
 export interface ProcessOptions {
   /** Approver ids supplied with the call (satisfies approval gates). */
@@ -365,10 +366,33 @@ export class CovenantRuntime {
 
     // ===== PHASE 1 — IDENTITY & SECURITY =====
     let p = performance.now();
-    const agent = this.agents.get(request.agent_id);
+    let agent = this.agents.get(request.agent_id);
+    
+    // Fallback to Lockerphycer if not in local cache
+    if (!agent) {
+      const fetched = await LockerphycerClient.getAgentIdentity(request.agent_id);
+      if (fetched) {
+        agent = fetched;
+        this.agents.set(request.agent_id, fetched);
+        // Initialize trust if needed
+        if (!this.trust.has(agent.agent_id)) {
+          this.trust.set(agent.agent_id, {
+            agent_id: agent.agent_id,
+            score: agent.metadata.tier === "system" ? 95 : 50,
+            success_rate: 1,
+            policy_adherence: 1,
+            denial_frequency: 0,
+            escalation_events: 0,
+            total_requests: 0,
+            last_updated: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     if (!agent) {
       mark(1, "Identity & Security", "fail", "Agent not found", { agent_id: request.agent_id }, p);
-      return reject("401", "Agent not found", "agent_not_found", undefined);
+      return reject("401", "Agent not found in registry or Lockerphycer", "agent_not_found", undefined);
     }
     if (this.suspended.has(agent.agent_id)) {
       mark(1, "Identity & Security", "fail", "Agent suspended", { agent_id: agent.agent_id }, p);
