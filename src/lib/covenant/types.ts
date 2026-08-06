@@ -163,9 +163,23 @@ export interface LedgerForward {
 }
 
 export interface Evidence {
+  // Legacy field: populate only after an actual PGL commitment.
+  pgl_hash: string | null;
+  pgl_status: "not_submitted" | "submitted" | "committed" | "failed";
+  pgl_certificate_id?: string;
+  pgl_event_hash?: string;
+
+  evidence_version: "2";
   evidence_id: string;
+  envelope_hash: string;
+  signature: string;
+  signature_algorithm: "Ed25519";
+  signer_key_id: string;
+  issued_at: string;
+
   connection_id: string;
-  pgl_hash: string;
+  intermediary_receipt_id?: string;
+  delegation_chain_hash?: string;
   /** Cryptographic nonce embedded in the HMAC hash input to prevent replay/forgery. */
   seal_nonce: string;
   timestamp: string;
@@ -436,7 +450,7 @@ export interface DelegationChain {
   timestamp: string;
   depth: number;
   max_depth: number;
-  trust_multiplier: number;
+  risk_modifier: number;
   evidence_chain: string[];
   is_valid: boolean;
   is_revoked: boolean;

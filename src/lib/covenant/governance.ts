@@ -16,6 +16,7 @@ import type {
   PolicyRule,
   TrustScore,
 } from "./types";
+import { DelegationRegistry } from "./capability-attenuation";
 
 const TIER_RANK: Record<Policy["tier"], number> = {
   system: 0,
@@ -25,6 +26,7 @@ const TIER_RANK: Record<Policy["tier"], number> = {
 
 export class GovernanceLayer {
   private delegations = new Map<string, DelegationChain>();
+  readonly registry = new DelegationRegistry();
 
   /** Order policies by authority (system first). */
   private ordered(policies: Policy[]): Policy[] {
@@ -190,7 +192,7 @@ export class GovernanceLayer {
       timestamp: new Date().toISOString(),
       depth,
       max_depth: args.max_depth,
-      trust_multiplier: Math.max(0.4, 1 - depth * 0.15),
+      risk_modifier: Math.max(0.4, 1 - depth * 0.15),
       evidence_chain: args.parent ? [...args.parent.evidence_chain] : [],
       is_valid: depth <= args.max_depth,
       is_revoked: false,
@@ -201,6 +203,29 @@ export class GovernanceLayer {
   }
 
   getDelegation(agent_id: string, capability_id: string): DelegationChain | undefined {
+    const cryptoDelegations = this.registry.queryDelegationsForAgent(agent_id);
+    const validCrypto = cryptoDelegations.find(d => 
+      this.registry.verifyDelegation(d).valid && 
+      d.granted_capabilities.some(c => c.resource === capability_id || c.action === capability_id)
+    );
+    
+    if (validCrypto) {
+      return {
+        delegation_id: validCrypto.delegation_id,
+        source_agent: validCrypto.delegator_agent_id,
+        target_agent: validCrypto.delegatee_agent_id,
+        capability_id: capability_id,
+        timestamp: validCrypto.issued_at,
+        depth: validCrypto.current_delegation_depth,
+        max_depth: validCrypto.max_delegation_depth,
+        risk_modifier: Math.max(0.4, 1 - validCrypto.current_delegation_depth * 0.15),
+        evidence_chain: [],
+        is_valid: true,
+        is_revoked: !!validCrypto.revoked_at,
+        can_further_delegate: validCrypto.current_delegation_depth < validCrypto.max_delegation_depth,
+      };
+    }
+
     return this.delegations.get(`${agent_id}|${capability_id}`);
   }
 

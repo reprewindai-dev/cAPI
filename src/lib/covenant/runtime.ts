@@ -17,9 +17,11 @@ import {
   sha256,
   verifyMessage,
 } from "./crypto";
+import { EvidenceGenerator, resolveSigningKeyPair } from "./evidence-standard";
 import { SafetyLayer } from "./safety";
 import { IntelligenceLayer } from "./intelligence";
 import { GovernanceLayer } from "./governance";
+import { ManagedIntermediary, IntermediaryReceipt } from "./accountable-intermediary";
 import { forwardEvidence, isLedgerConfigured } from "./pgl-ledger";
 import type {
   AgentIdentity,
@@ -60,6 +62,25 @@ export class CovenantRuntime {
   readonly safety = new SafetyLayer();
   readonly intelligence = new IntelligenceLayer();
   readonly governance = new GovernanceLayer();
+  readonly evidenceGenerator = new EvidenceGenerator("capi-runtime");
+  readonly intermediary: ManagedIntermediary;
+
+  constructor() {
+    const keys = resolveSigningKeyPair();
+    const evidenceKeyId = process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || "dev-ephemeral-key";
+    
+    if (process.env.NODE_ENV === "production") {
+      if (!process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || !process.env.COVENANT_EVIDENCE_SIGNING_KEY?.trim()) {
+        throw new Error("COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production");
+      }
+    }
+    
+    this.intermediary = new ManagedIntermediary(
+      "capi-runtime",
+      keys.privateKeyB64,
+      keys.publicKeyB64
+    );
+  }
 
   // ---- registration ---------------------------------------------------------
 
@@ -166,7 +187,7 @@ export class CovenantRuntime {
 
   // ---- evidence -------------------------------------------------------------
 
-  private generateEvidence(
+  private async generateEvidence(
     request: CovenantRequest,
     agent: AgentIdentity | undefined,
     capability: CapabilityIdentity | undefined,
@@ -174,18 +195,43 @@ export class CovenantRuntime {
     policy_id: string,
     output: Record<string, unknown>,
     executionMs: number,
-  ): Evidence {
+    receiptId?: string
+  ): Promise<Evidence> {
+    const executionEvidence = await this.evidenceGenerator.generateEvidence({
+      agent_id: agent?.agent_id ?? request.agent_id,
+      agent_public_key: agent?.public_key ?? "unverified",
+      request: request as any,
+      authorization_decision: status === "authorized" || status === "error" ? "authorized" : (status === "quarantined" ? "quarantined" : "denied"),
+      policy_id: policy_id,
+      decision_reason: status,
+      execution_status: status === "error" ? "error" : "success",
+      execution_result: output as any,
+      duration_ms: executionMs,
+      regulatory_category: capability?.metadata.category ?? "tool",
+      retention_years: 7,
+    });
+
     const now = new Date().toISOString();
-    const sealNonce = generateNonce();
+    const evidenceKeyId = process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || "dev-ephemeral-key";
+    
     const evidence: Evidence = {
-      evidence_id: randomUUID(),
+      pgl_hash: null,
+      pgl_status: "not_submitted",
+      evidence_version: "2",
+      evidence_id: executionEvidence.evidence_id,
+      envelope_hash: executionEvidence.signatures.envelope_hash.value,
+      signature: executionEvidence.signatures.server_signature.value,
+      signature_algorithm: "Ed25519",
+      signer_key_id: evidenceKeyId,
+      issued_at: now,
+      
       connection_id: request.connection_id,
-      pgl_hash: "",
-      seal_nonce: sealNonce,
-      timestamp: now,
+      intermediary_receipt_id: receiptId,
+      seal_nonce: "ed25519-signed",
+      timestamp: executionEvidence.authorization.timestamp_utc,
       who: {
-        agent_id: agent?.agent_id ?? request.agent_id,
-        agent_public_key: agent?.public_key ?? "unverified",
+        agent_id: executionEvidence.actor.agent_id,
+        agent_public_key: executionEvidence.actor.agent_public_key,
         owner_id: agent?.owner_id ?? "unknown",
       },
       what: {
@@ -207,7 +253,7 @@ export class CovenantRuntime {
       },
       result: {
         status,
-        output_hash: sha256(JSON.stringify(output)),
+        output_hash: executionEvidence.execution.result_commitment.hash_value,
         output_size: JSON.stringify(output).length,
         execution_time_ms: executionMs,
       },
@@ -217,15 +263,11 @@ export class CovenantRuntime {
         data_classification: "internal",
         retention_policy: "7y",
       },
-      previous_hash: this.lastEvidenceHash ?? undefined,
+      previous_hash: executionEvidence.chain.previous_evidence_hash,
     };
-    evidence.pgl_hash = hmacHashObject({
-      ...evidence,
-      pgl_hash: undefined,
-      external_ledger: undefined,
-    }, sealNonce);
-    this.lastEvidenceHash = evidence.pgl_hash;
-    this.evidenceLedger.set(evidence.pgl_hash, evidence);
+
+    this.lastEvidenceHash = evidence.envelope_hash;
+    this.evidenceLedger.set(evidence.envelope_hash, evidence);
     this.auditLog.unshift(evidence);
     this.forwardToPgl(evidence);
     return evidence;
@@ -258,7 +300,7 @@ export class CovenantRuntime {
   }
 
   getEvidence(hash: string): Evidence | undefined {
-    return this.evidenceLedger.get(hash);
+    return this.evidenceLedger.get(hash) || Array.from(this.evidenceLedger.values()).find(e => e.pgl_hash === hash);
   }
 
   getAuditLog(limit = 100): Evidence[] {
@@ -332,27 +374,24 @@ export class CovenantRuntime {
      * replays, missing capabilities) are agent actions too, so they belong in
      * the audit log and the hash chain, not just the trace.
      */
-    const reject = (
+    const reject = async (
       code: string,
       message: string,
       reason: string,
       agentMaybe: AgentIdentity | undefined,
       outcome: Decision = "error",
-    ): CovenantResponse => {
-      const ev = this.generateEvidence(
-        request,
-        agentMaybe,
-        undefined,
-        outcome,
-        "security-reject",
-        { reason },
-        0,
-      );
+    ): Promise<CovenantResponse> => {
+      const res = await this.intermediary.processRequest({
+        request_id: request.connection_id,
+        request: request as any,
+        policy_check: () => ({ allowed: false, reason })
+      });
+      
       const delta = this.applyTrust(request.agent_id, outcome);
       return {
         connection_id: request.connection_id,
         status: outcome,
-        evidence_hash: ev.pgl_hash,
+        evidence_hash: res.receipt.receipt_hash.value,
         error: { code, message },
         metadata: {
           trust_delta: delta,
@@ -368,11 +407,11 @@ export class CovenantRuntime {
     const agent = this.agents.get(request.agent_id);
     if (!agent) {
       mark(1, "Identity & Security", "fail", "Agent not found", { agent_id: request.agent_id }, p);
-      return reject("401", "Agent not found", "agent_not_found", undefined);
+      return await reject("401", "Agent not found", "agent_not_found", undefined);
     }
     if (this.suspended.has(agent.agent_id)) {
       mark(1, "Identity & Security", "fail", "Agent suspended", { agent_id: agent.agent_id }, p);
-      return reject("403", "Agent is suspended", "agent_suspended", agent);
+      return await reject("403", "Agent is suspended", "agent_suspended", agent);
     }
     const message = canonicalRequestMessage(request);
     const signatureValid = verifyMessage(message, request.agent_signature, agent.public_key);
@@ -380,13 +419,13 @@ export class CovenantRuntime {
       mark(1, "Identity & Security", "fail", "Invalid Ed25519 signature", {
         agent: agent.agent_name,
       }, p);
-      return reject("401", "Invalid signature", "invalid_signature", agent);
+      return await reject("401", "Invalid signature", "invalid_signature", agent);
     }
     if (this.seenConnections.has(request.connection_id)) {
       mark(1, "Identity & Security", "fail", "Replay detected (duplicate connection_id)", {
         connection_id: request.connection_id,
       }, p);
-      return reject("403", "Duplicate request detected (replay attack)", "replay_detected", agent, "denied");
+      return await reject("403", "Duplicate request detected (replay attack)", "replay_detected", agent, "denied");
     }
     this.seenConnections.add(request.connection_id);
     mark(1, "Identity & Security", "pass", `Verified ${agent.agent_name} · Ed25519 ok · no replay`, {
@@ -403,7 +442,7 @@ export class CovenantRuntime {
       mark(2, "Capability & Policy", "fail", "Capability not found", {
         capability_id: request.capability_id,
       }, p);
-      return reject("404", "Capability not found", "capability_not_found", agent);
+      return await reject("404", "Capability not found", "capability_not_found", agent);
     }
     const trust = this.trust.get(request.agent_id);
     const delegation = this.governance.getDelegation(request.agent_id, request.capability_id);
@@ -424,15 +463,17 @@ export class CovenantRuntime {
           effective_permissions: permissions,
           conflicts: composition.conflicts_detected,
         }, p);
-      const ev = this.generateEvidence(request, agent, capability, "denied", policyId, {
-        reason: "policy_denied",
-      }, 0);
+      const res = await this.intermediary.processRequest({
+        request_id: request.connection_id,
+        request: request as any,
+        policy_check: () => ({ allowed: false, reason: "policy_denied" })
+      });
       const delta = this.applyTrust(request.agent_id, "denied");
       this.safety.observe(request.agent_id, request.capability_id, true);
       return {
         connection_id: request.connection_id,
         status: "denied",
-        evidence_hash: ev.pgl_hash,
+        evidence_hash: res.receipt.receipt_hash.value,
         error: {
           code: "403",
           message: "Policy denied",
@@ -484,14 +525,16 @@ export class CovenantRuntime {
           anomalies: blocking,
           quarantine_id: q.quarantine_id,
         }, p);
-      const ev = this.generateEvidence(request, agent, capability, "quarantined", policyId, {
-        quarantine_id: q.quarantine_id,
-      }, 0);
+      const res = await this.intermediary.processRequest({
+        request_id: request.connection_id,
+        request: request as any,
+        policy_check: () => ({ allowed: false, reason: "quarantined" })
+      });
       const delta = this.applyTrust(request.agent_id, "quarantined");
       return {
         connection_id: request.connection_id,
         status: "quarantined",
-        evidence_hash: ev.pgl_hash,
+        evidence_hash: res.receipt.receipt_hash.value,
         error: {
           code: "423",
           message: "Request quarantined pending approval quorum",
@@ -520,14 +563,16 @@ export class CovenantRuntime {
         cost_model: model,
         allocation: this.intelligence.getAllocation(request.agent_id, request.capability_id),
       }, p);
-      const ev = this.generateEvidence(request, agent, capability, "denied", policyId, {
-        reason: "budget_exceeded",
-      }, 0);
+      const res = await this.intermediary.processRequest({
+        request_id: request.connection_id,
+        request: request as any,
+        policy_check: () => ({ allowed: false, reason: "budget_exceeded" })
+      });
       const delta = this.applyTrust(request.agent_id, "denied");
       return {
         connection_id: request.connection_id,
         status: "denied",
-        evidence_hash: ev.pgl_hash,
+        evidence_hash: res.receipt.receipt_hash.value,
         error: { code: "402", message: "Budget exceeded", remediation: { overage_policy: model?.overage_policy } },
         metadata: {
           trust_delta: delta,
@@ -556,14 +601,16 @@ export class CovenantRuntime {
           approval_path: permissions.approval_path,
           provided: [...provided],
         }, p);
-        const ev = this.generateEvidence(request, agent, capability, "quarantined", policyId, {
-          reason: "awaiting_approval",
-        }, 0);
+        const res = await this.intermediary.processRequest({
+          request_id: request.connection_id,
+          request: request as any,
+          policy_check: () => ({ allowed: false, reason: "awaiting_approval" })
+        });
         const delta = this.applyTrust(request.agent_id, "quarantined");
         return {
           connection_id: request.connection_id,
           status: "quarantined",
-          evidence_hash: ev.pgl_hash,
+          evidence_hash: res.receipt.receipt_hash.value,
           error: {
             code: "428",
             message: "Approval required",
@@ -585,6 +632,13 @@ export class CovenantRuntime {
     // ===== PHASE 6 — EXECUTION =====
     p = performance.now();
     const execStart = performance.now();
+    const res = await this.intermediary.processRequest({
+      request_id: request.connection_id,
+      request: request as any,
+      rate_limit_check: () => ({ allowed: true }),
+      policy_check: () => ({ allowed: true })
+    });
+    
     const output = await this.executeCapability(capability, request);
     const executionMs = Number((performance.now() - execStart).toFixed(2));
     const executionFailed = output.ok === false;
@@ -595,9 +649,9 @@ export class CovenantRuntime {
     }, p);
     if (executionFailed) {
       p = performance.now();
-      const evidence = this.generateEvidence(request, agent, capability, "error", policyId, output, executionMs);
-      mark(7, "Evidence & Proof", "pass", `Sealed execution error · ${evidence.pgl_hash.slice(0, 16)}…`, {
-        pgl_hash: evidence.pgl_hash,
+      const evidence = await this.generateEvidence(request, agent, capability, "error", policyId, output, executionMs, res.receipt.receipt_id);
+      mark(7, "Evidence & Proof", "pass", `Sealed execution error · ${evidence.envelope_hash.slice(0, 16)}…`, {
+        envelope_hash: evidence.envelope_hash,
         previous_hash: evidence.previous_hash,
         output_hash: evidence.result.output_hash,
         pgl_ledger: evidence.external_ledger,
@@ -618,7 +672,7 @@ export class CovenantRuntime {
       return {
         connection_id: request.connection_id,
         status: "error",
-        evidence_hash: evidence.pgl_hash,
+        evidence_hash: evidence.envelope_hash,
         error: {
           code: "502",
           message: typeof output.error === "string" ? output.error : "Capability execution failed",
@@ -635,10 +689,10 @@ export class CovenantRuntime {
 
     // ===== PHASE 7 — EVIDENCE & PROOF =====
     p = performance.now();
-    const evidence = this.generateEvidence(request, agent, capability, "authorized", policyId, output, executionMs);
+    const evidence = await this.generateEvidence(request, agent, capability, "authorized", policyId, output, executionMs, res.receipt.receipt_id);
     const ledgerState = evidence.external_ledger?.status ?? "disabled";
-    mark(7, "Evidence & Proof", "pass", `Sealed · ${evidence.pgl_hash.slice(0, 16)}…`, {
-      pgl_hash: evidence.pgl_hash,
+    mark(7, "Evidence & Proof", "pass", `Sealed · ${evidence.envelope_hash.slice(0, 16)}…`, {
+      envelope_hash: evidence.envelope_hash,
       previous_hash: evidence.previous_hash,
       output_hash: evidence.result.output_hash,
       pgl_ledger: evidence.external_ledger,
@@ -668,7 +722,7 @@ export class CovenantRuntime {
     return {
       connection_id: request.connection_id,
       status: "authorized",
-      evidence_hash: evidence.pgl_hash,
+      evidence_hash: evidence.envelope_hash,
       result: {
         output,
         output_hash: evidence.result.output_hash,

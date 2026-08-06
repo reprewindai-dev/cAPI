@@ -123,7 +123,7 @@ interface UnsignedEvidence {
   compliance: ExecutionEvidence["compliance"];
 }
 
-interface SigningKeyPair {
+export interface SigningKeyPair {
   privateKeyB64: string;
   publicKeyB64: string;
 }
@@ -145,7 +145,7 @@ function signingKeyPairFromPrivateKey(privateKeyB64: string): SigningKeyPair {
   return { privateKeyB64, publicKeyB64 };
 }
 
-function resolveSigningKeyPair(): SigningKeyPair {
+export function resolveSigningKeyPair(): SigningKeyPair {
   const configuredKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY?.trim();
   if (configuredKey) {
     if (configuredKeyMaterial !== configuredKey || !configuredKeyPair) {
@@ -156,9 +156,16 @@ function resolveSigningKeyPair(): SigningKeyPair {
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "COVENANT_EVIDENCE_SIGNING_KEY is required in production; refusing to use an ephemeral evidence signing key.",
-    );
+    if (!configuredKey || !process.env.COVENANT_EVIDENCE_KEY_ID?.trim()) {
+      throw new Error(
+        "COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production; refusing to use an ephemeral evidence signing key."
+      );
+    }
+    if (configuredKey.length !== 64 && configuredKey.length !== 44 && configuredKey.length !== 88) {
+      throw new Error(
+        "COVENANT_EVIDENCE_SIGNING_KEY must be exactly 64 characters (or valid Base64 equivalent) in production."
+      );
+    }
   }
 
   if (!ephemeralKeyPair) {

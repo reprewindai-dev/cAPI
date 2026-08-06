@@ -24,6 +24,7 @@ const BYOS_API_KEY      = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const EXECUTION_TIMEOUT = Number(process.env.COVENANT_EXEC_TIMEOUT_MS ?? 10_000);
 const ALLOW_LOCAL_EXECUTION = process.env.COVENANT_ALLOW_LOCAL_EXECUTION === "true";
 
+
 // ---------------------------------------------------------------------------
 // Execution result — matches what generateEvidence() expects
 // ---------------------------------------------------------------------------
@@ -102,7 +103,7 @@ export class MCPBridge {
       }
 
       return {
-        output,
+        output: output,
         execution_ms: Number((performance.now() - t0).toFixed(2)),
         method,
         endpoint: capability.endpoint,
