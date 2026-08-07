@@ -1,4 +1,4 @@
-import { expect, test, describe } from "vitest";
+import { expect, test, describe, vi } from "vitest";
 import { CovenantRuntime } from "../src/lib/covenant/runtime";
 import { generateKeyPair, signMessage, canonicalRequestMessage } from "../src/lib/covenant/crypto";
 import { resolveSigningKeyPair } from "../src/lib/covenant/evidence-standard";
@@ -11,7 +11,7 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
     const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
     try {
-      process.env.NODE_ENV = "production";
+      vi.stubEnv("NODE_ENV", "production");
       process.env.COVENANT_EVIDENCE_SIGNING_KEY = "";
       process.env.COVENANT_EVIDENCE_KEY_ID = "";
 
@@ -24,7 +24,7 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
         new CovenantRuntime();
       }).toThrow(/COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production/);
     } finally {
-      if (originalEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalEnv;
+      vi.unstubAllEnvs();
       if (originalKey === undefined) delete process.env.COVENANT_EVIDENCE_SIGNING_KEY; else process.env.COVENANT_EVIDENCE_SIGNING_KEY = originalKey;
       if (originalKeyId === undefined) delete process.env.COVENANT_EVIDENCE_KEY_ID; else process.env.COVENANT_EVIDENCE_KEY_ID = originalKeyId;
     }
@@ -36,7 +36,7 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
     const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
     try {
-      process.env.NODE_ENV = "development";
+      vi.stubEnv("NODE_ENV", "development");
       delete process.env.COVENANT_EVIDENCE_SIGNING_KEY;
       delete process.env.COVENANT_EVIDENCE_KEY_ID;
 
@@ -44,7 +44,7 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
       expect(runtime).toBeDefined();
       expect(runtime.intermediary).toBeDefined();
     } finally {
-      if (originalEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalEnv;
+      vi.unstubAllEnvs();
       if (originalKey === undefined) delete process.env.COVENANT_EVIDENCE_SIGNING_KEY; else process.env.COVENANT_EVIDENCE_SIGNING_KEY = originalKey;
       if (originalKeyId === undefined) delete process.env.COVENANT_EVIDENCE_KEY_ID; else process.env.COVENANT_EVIDENCE_KEY_ID = originalKeyId;
     }

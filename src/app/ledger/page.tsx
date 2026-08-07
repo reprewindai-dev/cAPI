@@ -70,7 +70,7 @@ export default function LedgerPage() {
                   <div className="truncate text-sm text-white/90">
                     {e.who.agent_id} <span className="text-mute">→</span> {e.what.capability_name}
                   </div>
-                  <div className="font-mono text-[10px] text-mute">{short(e.pgl_hash, 12)}</div>
+                  <div className="font-mono text-[10px] text-mute">{short(e.pgl_hash || "", 12)}</div>
                 </div>
                 <span className="shrink-0 font-mono text-[10px] text-mute">{timeAgo(e.timestamp)}</span>
               </button>
@@ -100,7 +100,7 @@ export default function LedgerPage() {
                 <KeyVal k="how" v={`${evidence.how.method} · ${evidence.how.endpoint}`} />
                 <KeyVal k="why" v={evidence.why.policy_applied} />
                 <KeyVal k="class" v={evidence.compliance.data_classification} />
-                <KeyVal k="pgl hash" v={short(evidence.pgl_hash, 10)} />
+                <KeyVal k="pgl hash" v={short(evidence.pgl_hash || "", 10)} />
                 <KeyVal k="prev hash" v={evidence.previous_hash ? short(evidence.previous_hash, 10) : "genesis"} />
                 <KeyVal k="output hash" v={short(evidence.result.output_hash, 10)} />
                 <KeyVal k="exec" v={`${evidence.result.execution_time_ms.toFixed(1)}ms`} />
@@ -132,7 +132,7 @@ export default function LedgerPage() {
                           {e.result.status}
                         </span>
                       </div>
-                      <div className="font-mono text-[10px] text-mute">{short(e.pgl_hash, 14)}</div>
+                      <div className="font-mono text-[10px] text-mute">{short(e.pgl_hash || "", 14)}</div>
                     </div>
                   </li>
                 ))}

@@ -9,7 +9,7 @@ describe("POST /api/policy/:id", () => {
       method: "POST",
       body: JSON.stringify({ enabled: "true" }),
       headers: { "content-type": "application/json", "x-covenant-admin-token": "test-token" },
-    }) as any, { params: { id: "policy-1" } });
+    }) as any, { params: Promise.resolve({ id: "policy-1" }) } as any);
 
     expect(response?.status).toBe(400);
   });

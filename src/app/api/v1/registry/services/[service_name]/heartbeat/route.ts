@@ -3,10 +3,11 @@ import { getEngine } from "@/lib/covenant/engine";
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = { params: { service_name: string } };
+type RouteContext = { params: Promise<{ service_name: string }> };
 
-export async function POST(_request: NextRequest, { params }: RouteContext) {
-  const updated = await getEngine().heartbeatService(params.service_name);
+export async function POST(_request: NextRequest, context: RouteContext) {
+  const { service_name } = await context.params;
+  const updated = await getEngine().heartbeatService(service_name);
   if (!updated) {
     return NextResponse.json(
       { error: "Service not registered; POST /api/v1/registry/register first" },

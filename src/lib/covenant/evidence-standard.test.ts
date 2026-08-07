@@ -6,6 +6,7 @@ import {
   getServerPublicKey,
   type ExecutionEvidence,
 } from "./evidence-standard";
+import { vi } from "vitest";
 
 function evidenceParams(agentId: string) {
   return {
@@ -54,21 +55,23 @@ describe("EvidenceGenerator", () => {
   });
 
   it("fails closed without a signing key in production", () => {
-    const env = process.env as Record<string, string | undefined>;
-    const previousNodeEnv = env.NODE_ENV;
-    const previousSigningKey = env.COVENANT_EVIDENCE_SIGNING_KEY;
-    env.NODE_ENV = "production";
-    delete env.COVENANT_EVIDENCE_SIGNING_KEY;
+    const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
+    const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
     try {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.COVENANT_EVIDENCE_SIGNING_KEY;
+      delete process.env.COVENANT_EVIDENCE_KEY_ID;
+
       expect(() => new EvidenceGenerator("server-production")).toThrow(
-        "COVENANT_EVIDENCE_SIGNING_KEY is required in production",
+        "COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production",
       );
     } finally {
-      if (previousNodeEnv === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = previousNodeEnv;
-      if (previousSigningKey === undefined) delete env.COVENANT_EVIDENCE_SIGNING_KEY;
-      else env.COVENANT_EVIDENCE_SIGNING_KEY = previousSigningKey;
+      vi.unstubAllEnvs();
+      if (originalKey === undefined) delete process.env.COVENANT_EVIDENCE_SIGNING_KEY;
+      else process.env.COVENANT_EVIDENCE_SIGNING_KEY = originalKey;
+      if (originalKeyId === undefined) delete process.env.COVENANT_EVIDENCE_KEY_ID;
+      else process.env.COVENANT_EVIDENCE_KEY_ID = originalKeyId;
     }
   });
 

@@ -97,7 +97,7 @@ describe("cAPI and CAPPO-facing route validation", () => {
     }, headers));
     const policyResponse = await policy(jsonRequest("http://localhost/api/policy/p-1", {
       policy_name: "p", version: "1", tier: "invalid", rules: [],
-    }, headers), { params: { id: "p-1" } });
+    }, headers), { params: Promise.resolve({ id: "p-1" }) } as any);
 
     expect(budgetResponse.status).toBe(400);
     expect(policyResponse?.status).toBe(400);
