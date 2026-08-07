@@ -43,7 +43,13 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
       cache: 'no-store',
     });
     if (response.status === 404) {
-      response = await fetch(endpoint(configured, '/protocol.json'), {
+      let fallbackPath = '/protocol.json';
+      let host = configured;
+      if (configured.includes('/api/v1/mcp/gateway')) {
+          fallbackPath = '/api/v1/health';
+          host = configured.replace('/api/v1/mcp/gateway', '');
+      }
+      response = await fetch(endpoint(host, fallbackPath), {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-store',
