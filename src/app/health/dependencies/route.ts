@@ -39,27 +39,29 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
   try {
     let response = await fetch(endpoint(configured, '/health'), {
       method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Host': 'api.veklom.com'
+      },
       signal: controller.signal,
       cache: 'no-store',
     });
     if (!response.ok) {
       let fallbackPath = '/protocol.json';
-      let host = configured;
+      let fallbackHost = configured;
       if (configured.includes('/api/v1/mcp/gateway')) {
           fallbackPath = '/api/v1/health';
-          host = configured.replace('/api/v1/mcp/gateway', '');
-      }
-      let headers: HeadersInit = {
-        'cache': 'no-store'
-      };
-      if (fallbackPath === '/api/v1/health') {
-          headers['Host'] = 'api.veklom.com';
+          fallbackHost = configured.replace('/api/v1/mcp/gateway', '');
       }
       
-      response = await fetch(endpoint(host, fallbackPath), {
+      response = await fetch(endpoint(fallbackHost, fallbackPath), {
         method: 'GET',
         signal: controller.signal,
-        headers,
+        headers: {
+          'Accept': 'application/json',
+          'cache': 'no-store',
+          'Host': 'api.veklom.com'
+        },
       });
     }
     const latency_ms = Math.round(performance.now() - started);
