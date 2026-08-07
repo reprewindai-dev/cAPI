@@ -49,10 +49,17 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
           fallbackPath = '/api/v1/health';
           host = configured.replace('/api/v1/mcp/gateway', '');
       }
+      let headers: HeadersInit = {
+        'cache': 'no-store'
+      };
+      if (fallbackPath === '/api/v1/health') {
+          headers['Host'] = 'api.veklom.com';
+      }
+      
       response = await fetch(endpoint(host, fallbackPath), {
         method: 'GET',
         signal: controller.signal,
-        cache: 'no-store',
+        headers,
       });
     }
     const latency_ms = Math.round(performance.now() - started);
