@@ -42,7 +42,7 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
       signal: controller.signal,
       cache: 'no-store',
     });
-    if (response.status === 404 || response.status === 400) {
+    if (!response.ok) {
       let fallbackPath = '/protocol.json';
       let host = configured;
       if (configured.includes('/api/v1/mcp/gateway')) {
