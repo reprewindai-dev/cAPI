@@ -162,7 +162,15 @@ export class RedisRegistryStore implements RegistryStore {
 export function createRegistryStore(): RegistryStore {
   const redisUrl = process.env.REDIS_URL?.trim();
   if (redisUrl) return new RedisRegistryStore(redisUrl);
-  console.warn("[registry] REDIS_URL is not configured; using in-memory registry store");
+  
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error("CRITICAL STARTUP ERROR: REDIS_URL is not configured. REDIS_URL must be set to the shared Redis container: redis://v8vf3lw73fx9lw9xmbq1tvo5:6379");
+  }
+  
+  console.error("CRITICAL STARTUP ERROR: REDIS_URL is not configured.");
+  console.error("The service registry is ephemeral without Redis. All registered services will be LOST on every restart.");
+  console.error("REDIS_URL must be set to the shared Redis container: redis://v8vf3lw73fx9lw9xmbq1tvo5:6379");
+  console.warn("[registry] Falling back to in-memory registry store");
   return new InMemoryRegistryStore();
 }
 
