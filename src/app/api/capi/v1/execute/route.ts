@@ -35,10 +35,13 @@ export async function POST(request: Request) {
         data: result,
       });
     } else {
+      // Internal CAPPO authentication is deployment configuration, never a source fallback.
+      // Missing credentials fail closed instead of silently using a repository-known key.
+      const cappoApiKey = requireIntegration("CAPPO API key", process.env.CAPPO_API_KEY);
       const result = await postIntegration(cappoUrl, body, {
         "x-capability-hash": snapshotHash,
         "x-capability-signature": snapshotSignature,
-        "x-api-key": process.env.CAPPO_API_KEY || "cappo_internal_exec_key_veklom_2026",
+        "x-api-key": cappoApiKey,
       });
       return NextResponse.json(result);
     }
