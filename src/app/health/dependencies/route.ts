@@ -97,8 +97,8 @@ function overallState(results: DependencyResult[]): DependencyState {
 
 export async function GET() {
   const [cappo, pgl, byos, lockerphycer] = await Promise.all([
-    probe(process.env.CAPPO_BACKEND_URL),
-    probe(process.env.PGL_LEDGER_URL),
+    probe(process.env.CAPPO_BACKEND_URL, { hostHeader: 'cappo.veklom.com' }),
+    probe(process.env.PGL_LEDGER_URL, { hostHeader: 'pgl.veklom.com' }),
     probe(process.env.BYOS_MCP_GATEWAY_URL, { hostHeader: 'api.veklom.com' }),
     probe(process.env.LOCKERPHYCER_URL ?? process.env.LOCKERPHYCER_BACKEND_URL),
   ]);

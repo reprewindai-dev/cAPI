@@ -88,10 +88,34 @@ function capabilityMatches(left: Capability, right: Capability): boolean {
   return left.resource === right.resource && left.action === right.action;
 }
 
+export interface CapabilityContext {
+  audience?: string;
+  execution_result_hash?: string;
+  intermediary_receipt?: {
+    execution_result_hash?: string;
+    [key: string]: unknown;
+  };
+}
+
 export function hasCapability(
   auth: DelegatedAuthority,
   required: Capability,
+  context?: CapabilityContext,
 ): { granted: boolean; reason?: string } {
+  if (!auth.delegator_signature || !auth.delegator_signature.value) {
+    return { granted: false, reason: "Signed delegation is mandatory" };
+  }
+  if (context?.audience && auth.audience !== context.audience) {
+    return { granted: false, reason: "Audience mismatch" };
+  }
+  if (context?.intermediary_receipt) {
+    if (!context.execution_result_hash) {
+      return { granted: false, reason: "Execution result hash required for receipt binding" };
+    }
+    if (context.intermediary_receipt.execution_result_hash !== context.execution_result_hash) {
+      return { granted: false, reason: "Intermediary receipt not bound to execution result hash" };
+    }
+  }
   const expires = new Date(auth.expires_at).getTime();
   if (!Number.isFinite(expires) || Date.now() > expires) {
     return { granted: false, reason: "Delegation expired" };
@@ -128,6 +152,33 @@ export function hasCapability(
       reason: `Amount ${requestedAmount} exceeds max ${grantedAmount}`,
     };
   }
+
+  if (granted.constraints?.time_window) {
+    const window = granted.constraints.time_window;
+    const now = new Date(); // Use UTC or provided timezone appropriately, keeping simple here
+    const hour = now.getUTCHours();
+    if (window.start_hour !== undefined && hour < window.start_hour) {
+      return { granted: false, reason: "Outside allowed time window (too early)" };
+    }
+    if (window.end_hour !== undefined && hour >= window.end_hour) {
+      return { granted: false, reason: "Outside allowed time window (too late)" };
+    }
+  }
+
+  if (required.constraints?.rate_limit && granted.constraints?.rate_limit) {
+    const req = required.constraints.rate_limit;
+    const gnt = granted.constraints.rate_limit;
+    if (req.per_minute !== undefined && gnt.per_minute !== undefined && req.per_minute > gnt.per_minute) {
+      return { granted: false, reason: "Rate limit (per_minute) exceeded" };
+    }
+    if (req.per_hour !== undefined && gnt.per_hour !== undefined && req.per_hour > gnt.per_hour) {
+      return { granted: false, reason: "Rate limit (per_hour) exceeded" };
+    }
+    if (req.per_day !== undefined && gnt.per_day !== undefined && req.per_day > gnt.per_day) {
+      return { granted: false, reason: "Rate limit (per_day) exceeded" };
+    }
+  }
+
   return { granted: true };
 }
 
