@@ -147,13 +147,6 @@ function signingKeyPairFromPrivateKey(privateKeyB64: string): SigningKeyPair {
 
 export function resolveSigningKeyPair(): SigningKeyPair {
   const configuredKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY?.trim();
-  if (configuredKey) {
-    if (configuredKeyMaterial !== configuredKey || !configuredKeyPair) {
-      configuredKeyPair = signingKeyPairFromPrivateKey(configuredKey);
-      configuredKeyMaterial = configuredKey;
-    }
-    return configuredKeyPair;
-  }
 
   if (process.env.NODE_ENV === "production") {
     if (!configuredKey || !process.env.COVENANT_EVIDENCE_KEY_ID?.trim()) {
@@ -166,6 +159,14 @@ export function resolveSigningKeyPair(): SigningKeyPair {
         "COVENANT_EVIDENCE_SIGNING_KEY must be exactly 64 characters (or valid Base64 equivalent) in production."
       );
     }
+  }
+
+  if (configuredKey) {
+    if (configuredKeyMaterial !== configuredKey || !configuredKeyPair) {
+      configuredKeyPair = signingKeyPairFromPrivateKey(configuredKey);
+      configuredKeyMaterial = configuredKey;
+    }
+    return configuredKeyPair;
   }
 
   if (!ephemeralKeyPair) {

@@ -17,7 +17,7 @@ describe('GET /health/dependencies', () => {
     vi.unstubAllGlobals();
   });
 
-  it('scopes the api.veklom.com Host override to BYOS only', async () => {
+  it('sets correct explicit Host overrides for each dependency', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ status: 'ok' }), {
         status: 200,
@@ -40,8 +40,8 @@ describe('GET /health/dependencies', () => {
     const byos = calls.find((call) => call.url.startsWith('http://byos:8088'));
     const lockerphycer = calls.find((call) => call.url.startsWith('http://lockerphycer:8092'));
 
-    expect(cappo?.headers.get('host')).toBeNull();
-    expect(pgl?.headers.get('host')).toBeNull();
+    expect(cappo?.headers.get('host')).toBe('cappo.veklom.com');
+    expect(pgl?.headers.get('host')).toBe('pgl.veklom.com');
     expect(lockerphycer?.headers.get('host')).toBeNull();
     expect(byos?.headers.get('host')).toBe('api.veklom.com');
   });

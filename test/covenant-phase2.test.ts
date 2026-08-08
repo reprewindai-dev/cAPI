@@ -30,6 +30,27 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
     }
   });
 
+  test("resolveSigningKeyPair fails in production if SIGNING_KEY is present but KEY_ID is missing", () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
+    const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
+
+    try {
+      vi.stubEnv("NODE_ENV", "production");
+      // Provide a valid 64-char key to satisfy the length check (if it got that far)
+      process.env.COVENANT_EVIDENCE_SIGNING_KEY = "a".repeat(64);
+      process.env.COVENANT_EVIDENCE_KEY_ID = ""; // Missing KEY_ID
+
+      expect(() => {
+        resolveSigningKeyPair();
+      }).toThrow(/COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production/);
+    } finally {
+      vi.unstubAllEnvs();
+      if (originalKey === undefined) delete process.env.COVENANT_EVIDENCE_SIGNING_KEY; else process.env.COVENANT_EVIDENCE_SIGNING_KEY = originalKey;
+      if (originalKeyId === undefined) delete process.env.COVENANT_EVIDENCE_KEY_ID; else process.env.COVENANT_EVIDENCE_KEY_ID = originalKeyId;
+    }
+  });
+
   test("Runtime in development allows ephemeral keys", () => {
     const originalEnv = process.env.NODE_ENV;
     const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
