@@ -8,6 +8,10 @@ interface DependencyResult {
   latency_ms: number | null;
 }
 
+interface ProbeOptions {
+  hostHeader?: string;
+}
+
 const TIMEOUT_MS = 2_000;
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +28,18 @@ function endpoint(rawUrl: string, path: string): string {
   return `${rawUrl.replace(/\/+$/, '')}${path}`;
 }
 
-async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
+function probeHeaders(hostHeader?: string): HeadersInit {
+  const headers: HeadersInit = {
+    Accept: 'application/json',
+  };
+  if (hostHeader) headers.Host = hostHeader;
+  return headers;
+}
+
+async function probe(
+  rawUrl: string | undefined,
+  options: ProbeOptions = {},
+): Promise<DependencyResult> {
   const configured = rawUrl?.trim();
   if (!configured) {
     return { state: 'unconfigured', host: null, latency_ms: null };
@@ -39,10 +54,7 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
   try {
     let response = await fetch(endpoint(configured, '/health'), {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Host': 'api.veklom.com'
-      },
+      headers: probeHeaders(options.hostHeader),
       signal: controller.signal,
       cache: 'no-store',
     });
@@ -50,18 +62,15 @@ async function probe(rawUrl: string | undefined): Promise<DependencyResult> {
       let fallbackPath = '/protocol.json';
       let fallbackHost = configured;
       if (configured.includes('/api/v1/mcp/gateway')) {
-          fallbackPath = '/api/v1/health';
-          fallbackHost = configured.replace('/api/v1/mcp/gateway', '');
+        fallbackPath = '/api/v1/health';
+        fallbackHost = configured.replace('/api/v1/mcp/gateway', '');
       }
-      
+
       response = await fetch(endpoint(fallbackHost, fallbackPath), {
         method: 'GET',
         signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'cache': 'no-store',
-          'Host': 'api.veklom.com'
-        },
+        cache: 'no-store',
+        headers: probeHeaders(options.hostHeader),
       });
     }
     const latency_ms = Math.round(performance.now() - started);
@@ -90,7 +99,7 @@ export async function GET() {
   const [cappo, pgl, byos, lockerphycer] = await Promise.all([
     probe(process.env.CAPPO_BACKEND_URL),
     probe(process.env.PGL_LEDGER_URL),
-    probe(process.env.BYOS_MCP_GATEWAY_URL),
+    probe(process.env.BYOS_MCP_GATEWAY_URL, { hostHeader: 'api.veklom.com' }),
     probe(process.env.LOCKERPHYCER_URL ?? process.env.LOCKERPHYCER_BACKEND_URL),
   ]);
   const dependencies = { cappo, pgl, byos, lockerphycer };
