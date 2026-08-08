@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const rawCappoUrl = process.env.CAPPO_EXECUTE_URL || (process.env.CAPPO_BACKEND_URL ? process.env.CAPPO_BACKEND_URL + "/api/v1/execute" : undefined);
+    const rawCappoUrl = process.env.CAPPO_EXECUTE_URL || (process.env.CAPPO_BACKEND_URL ? process.env.CAPPO_BACKEND_URL + "/v1/exec" : undefined);
     const cappoUrl = requireIntegration("CAPPO execution", rawCappoUrl);
     const body = parsed.data;
     if (body.reauthorize_required === true || body.capability_version_mismatch === true) {
