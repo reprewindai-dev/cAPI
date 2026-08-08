@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       const result = await postIntegration(cappoUrl, body, {
         "x-capability-hash": snapshotHash,
         "x-capability-signature": snapshotSignature,
+        "x-api-key": process.env.CAPPO_API_KEY || "cappo_internal_exec_key_veklom_2026",
       });
       return NextResponse.json(result);
     }
