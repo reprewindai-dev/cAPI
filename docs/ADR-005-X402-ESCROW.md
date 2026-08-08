@@ -3,44 +3,57 @@
 ## Status
 **ACCEPTED FOR DESIGN — IMPLEMENTATION BLOCKED PENDING SECURITY AND DEPLOYMENT APPROVAL.**
 
-The owner has approved the scope and threat-model direction of this design. Solidity implementation and deployment remain **blocked**. This ADR contains **no** Solidity and authorizes **no** deployment. No contract may be written, compiled, or deployed until (a) the pre-packet decisions below are made and recorded, and (b) a security + deployment approval and audit plan are in place, at which point a new authorized implementation packet may be issued.
+This ADR is a cross-platform architecture record. **cAPI does not own settlement or escrow implementation.** x402 ownership is being normalized under issue #32 so each responsibility has one canonical owner and duplicate implementations are explicitly classified as adapter, compatibility, demo, deprecated, or archive.
 
-Per the canonical planning export, packet-002 is `NOT_STARTED` / `executionEligibility: BLOCKED`, classified `UNVERIFIED_DESIGN_INTENT` ("Contracts do not exist on disk and have not been deployed to any testnet"), and the export is unsigned.
+## Trust boundary clarification
 
-## Pre-packet decisions required (blockers to any implementation packet)
+A successful x402 payment or settlement is **not** proof that a capability worked. External trust/verification must bind the complete lifecycle:
+
+`challenge → verified payment → authority/governance → capability execution → contract-valid output → durable evidence/receipt → replay protection`
+
+TLS, route existence, HTTP 402 behavior, or payment settlement alone must never be presented as execution verification.
+
+## Pre-packet decisions required
 Before an implementation packet may be created, the following must be decided and recorded:
-1. **Target chain** (e.g. Base / Arbitrum / other) and rationale.
-2. **Settlement asset** (e.g. USDC) and its minor-unit decimals.
-3. **CAPPO authorization format** — the exact receipt/EAT structure, signature scheme, and how the contract/relayer verifies it.
-4. **VNP evidence trust model** — what VNP attests, who signs, and how the release path trusts/validates it.
-5. **Admin and upgrade controls** — proxy/upgrade pattern (or immutability), who holds admin, timelock.
-6. **Pause and recovery model** — emergency pause authority and stuck-fund recovery path.
-7. **Audit plan** — auditor(s), scope, and the gate that must pass before mainnet.
-8. **Testnet plan** — target testnet, test scenarios, and success criteria before mainnet.
-9. **Key custody** — how authorizer/admin keys are generated, stored, and rotated.
+1. target chain and rationale;
+2. settlement asset and minor-unit decimals;
+3. CAPPO authorization/receipt format and signature verification;
+4. VNP evidence trust model and freshness window;
+5. admin and upgrade controls;
+6. pause and recovery model;
+7. audit plan;
+8. testnet plan and success criteria;
+9. key custody and rotation;
+10. canonical repository ownership for payment verification, settlement persistence, capability authorization, evidence, pricing/discovery, and escrow client integration.
 
-## Context
-The blueprint's "x402 Settles" doctrine (ADR-001) requires machine-to-machine settlement **strictly bound to executions**. Packet-002 proposes an escrow contract at `contracts/X402Escrow.sol` (Solidity, on-chain).
+## Required settlement design
+1. **Lifecycle.** Explicit states such as `CREATED → FUNDED → AUTHORIZED → RELEASED`, with `REFUNDED` / `EXPIRED` terminal branches.
+2. **Roles.** Payer, payee, and authorizer with least privilege; no role may authorize and release to itself.
+3. **Replay protection.** Unique idempotency key/nonce bound to the originating governed execution/evidence identifier.
+4. **Timeout/refund.** Deterministic expiry and permissionless refund after expiry so funds cannot remain stuck indefinitely.
+5. **Authorization.** Release requires a valid scoped CAPPO authorization/receipt for the bound execution and amount.
+6. **Delivery evidence.** Where settlement depends on delivery, signed execution/output evidence must be validated before release.
+7. **Evidence binding.** State transitions must be linked to the governed execution evidence chain.
+8. **Threat model.** Reentrancy, integer errors, replay, front-running, stuck-fund griefing, key compromise, evidence/oracle spoofing, and upgrade/admin abuse.
+9. **Testing.** Unit, invariant/property, fuzz, access-control, replay/idempotency, fork/testnet, and full legal-state-transition coverage.
+10. **Deployment.** Audit sign-off, testnet-first, reproducible builds, verified source, documented admin controls, pinned chain/asset, and production relayer deployment on the approved Veklom stack.
 
-**Stack note:** unlike the scheduler (ADR-004), an on-chain escrow is inherently a smart contract and **cannot** be expressed in Python/TypeScript. This is therefore scoped as a **separate, audited Solidity effort** that does not alter the Python/TS services. The Python/TS side interacts with it only via a client (e.g. web3.py / viem) — the existing `triggerX402Settlement` path is the integration seam.
+## External verification contract
+Any external directory or verifier evaluating a Veklom paid capability should be able to prove all of the following from one test transaction:
 
-This ADR must be read alongside the governed issue "Replace simulated automatic x402 settlement triggering with CAPPO-authorized, execution-bound, idempotent settlement": settlement must be authorized, execution-bound, and idempotent regardless of whether the escrow is on-chain.
-
-## Required design (must be specified before implementation)
-1. **Lifecycle.** States and legal transitions, e.g. `CREATED → FUNDED → AUTHORIZED → RELEASED` with `REFUNDED` / `EXPIRED` terminal branches. No transition may skip authorization before release.
-2. **Roles.** Payer, payee, and an authorizer bound to CAPPO authority. Least privilege; no single role can both authorize and release to itself. Role/key rotation story.
-3. **Replay protection.** Each settlement carries a unique idempotency key / nonce bound to the originating execution (`pgl_hash`); re-submitting the same execution never double-releases. On-chain nonces + off-chain idempotency must agree.
-4. **Timeout / refund behavior.** Funded-but-unauthorized escrows refund to the payer after a defined timeout; deterministic, permissionless-refund-after-expiry so funds are never stuck.
-5. **Settlement authorization.** Release requires a valid CAPPO authorization (EAT/receipt) for the bound execution — signature, scope, amount, and TTL verified. Fail-closed: no `APPROVED` result ⇒ no release (parity with Lane 3 rule in ADR-002).
-6. **VNP validation.** Where settlement depends on measured delivery, require signed VNP evidence/telemetry as a release precondition. Define what VNP attests and its freshness window.
-7. **PGL evidence binding.** Every state transition (fund, authorize, release, refund) is anchored to PGL/Gnomledger with the execution's evidence hash, giving an auditable, hash-chained settlement lineage.
-8. **Threat model.** At minimum: reentrancy, integer over/underflow (use checked math / Solidity ≥0.8), authorization replay, front-running of release/refund, griefing via stuck funds, key compromise of the authorizer, oracle/VNP spoofing, and upgrade/admin key abuse. Each threat maps to a mitigation.
-9. **Testing strategy.** Unit + property/invariant tests (e.g. Foundry), fuzzing on amounts/nonces, reentrancy and access-control test suites, fork tests against the target chain, and 100% coverage of state transitions. Money is integer minor units end-to-end (matches `SettlementReferenceV1.amount_minor` / `amountMinor: BigInt!`).
-10. **Deployment requirements.** External audit sign-off before any mainnet deploy; testnet-first; reproducible builds and verified source; documented admin keys / timelock / pause; target chain and settlement asset (USDC minor units) pinned; production runs on the owner's stack (Coolify/Hetzner) for the off-chain relayer, with the contract on the designated chain — **not** Vercel.
+- capability id + version were known before payment;
+- payment challenge terms were live and authoritative;
+- payment proof was validated and single-use;
+- governance authorized the exact request;
+- the advertised capability actually executed;
+- returned output satisfied the capability contract;
+- output hash and execution evidence are durable;
+- receipt verification detects tampering/replay;
+- denied/failed execution cannot produce a false success receipt.
 
 ## Consequences
-- **Approval of this ADR does NOT authorize any implementation or deployment.** It records the accepted design and threat-model direction only. Implementation requires the pre-packet decisions above, a security + deployment approval, an audit plan, and a separate explicitly authorized packet.
-- **Implementation owner: a separate, audited Solidity contract effort** — not cAPI and not the Python/TS services (which interact only via the settlement client seam). 
-- **cAPI does not own the escrow.** This document lives in `cAPI/docs` only because that path currently holds the cross-platform ADR registry. Record location ≠ implementation ownership.
-- Until authorized and audited, no contract exists, compiles, or deploys.
-- This ADR is not evidence that escrow/settlement is implemented or verified; the capability remains evidence-gated (`UNVERIFIED_DESIGN_INTENT`).
+- Approval of this ADR does **not** authorize Solidity implementation or deployment.
+- Escrow remains a separate audited effort if/when explicitly authorized.
+- cAPI hosts this ADR as a cross-platform record; record location does not imply implementation ownership.
+- No duplicate pricing manifest, demo settlement engine, or archived PayAPI router may present itself as an authoritative production implementation.
+- Follow issue #32 for canonical ownership and cross-repo cleanup; BYOS issues #173/#174 track the real paid-execution verification path and retirement of catalog-era PayAPI behavior.
