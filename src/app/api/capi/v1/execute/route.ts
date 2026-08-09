@@ -35,10 +35,12 @@ export async function POST(request: Request) {
         data: result,
       });
     } else {
+      // Internal CAPPO authentication is deployment configuration. Missing credentials fail closed.
+      const cappoApiKey = requireIntegration("CAPPO API key", process.env.CAPPO_API_KEY);
       const result = await postIntegration(cappoUrl, body, {
         "x-capability-hash": snapshotHash,
         "x-capability-signature": snapshotSignature,
-        "x-api-key": process.env.CAPPO_API_KEY || "",
+        "x-api-key": cappoApiKey,
       });
       return NextResponse.json(result);
     }
