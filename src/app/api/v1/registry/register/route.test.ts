@@ -14,9 +14,15 @@ function post(url: string, body: unknown, headers: Record<string, string> = {}) 
 }
 
 const REGISTER_URL = "http://localhost/api/v1/registry/register";
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 afterEach(() => {
   delete process.env.CAPI_REGISTRY_TOKEN;
+  if (ORIGINAL_NODE_ENV === undefined) {
+    delete process.env.NODE_ENV;
+  } else {
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+  }
 });
 
 describe("POST /api/v1/registry/register", () => {
@@ -36,12 +42,11 @@ describe("POST /api/v1/registry/register", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.authenticated).toBe(false); // no CAPI_REGISTRY_TOKEN configured
+    expect(body.authenticated).toBe(false); // no CAPI_REGISTRY_TOKEN configured outside production
     expect(body.capabilities_registered).toBe(1);
     expect(body.declared_capabilities).toEqual(["identity", "sso"]);
     expect(body.executable_capability_ids).toContain("svc::lockerphycer-test-a::verify_token");
 
-    // The executable capability and the service are now visible in live state.
     const snapshot = await (await state()).json();
     expect(snapshot.services.some((s: { service_name: string }) => s.service_name === "lockerphycer-test-a")).toBe(true);
     expect(
@@ -58,6 +63,19 @@ describe("POST /api/v1/registry/register", () => {
   it("rejects an invalid body", async () => {
     const res = await register(post(REGISTER_URL, { capabilities: ["x"] }));
     expect(res.status).toBe(400);
+  });
+
+  it("fails closed in production when registry authentication is not configured", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.CAPI_REGISTRY_TOKEN;
+    const serviceName = "svc-production-missing-token";
+
+    const denied = await register(post(REGISTER_URL, { service_name: serviceName }));
+    expect(denied.status).toBe(503);
+    expect(await denied.json()).toEqual({ error: "Registry authentication is not configured" });
+
+    const svc = await (await services()).json();
+    expect(svc.services.some((s: { service_name: string }) => s.service_name === serviceName)).toBe(false);
   });
 
   it("enforces the registry token when configured", async () => {
