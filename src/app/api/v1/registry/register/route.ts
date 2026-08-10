@@ -8,7 +8,8 @@
  *
  * Auth: when CAPI_REGISTRY_TOKEN is set, a matching `Authorization: Bearer …`
  * is required; the registration is flagged `authenticated`. When the token is
- * unset (local/dev), the call is accepted but flagged `authenticated: false`.
+ * unset, unauthenticated registration is permitted only outside production.
+ * Production fails closed when registry authentication is not configured.
  */
 
 import { NextResponse } from "next/server";
@@ -30,6 +31,12 @@ type CapabilityEntry =
       requires_approval?: boolean;
     };
 
+type AuthCheck = {
+  ok: boolean;
+  authenticated: boolean;
+  configurationError: boolean;
+};
+
 function normalizeCapabilities(entries: CapabilityEntry[] | undefined): RegisteredCapability[] {
   if (!entries) return [];
   return entries.map((entry) =>
@@ -37,22 +44,36 @@ function normalizeCapabilities(entries: CapabilityEntry[] | undefined): Register
   );
 }
 
-function checkAuth(request: Request): { ok: boolean; authenticated: boolean } {
+function checkAuth(request: Request): AuthCheck {
   const expected = process.env.CAPI_REGISTRY_TOKEN?.trim();
   const header = request.headers.get("authorization")?.trim() ?? "";
   const presented = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
     : header;
+
   if (!expected) {
-    // No token configured — accept but mark unauthenticated (dev posture).
-    return { ok: true, authenticated: false };
+    if (process.env.NODE_ENV === "production") {
+      return { ok: false, authenticated: false, configurationError: true };
+    }
+    // Explicit local/dev/test posture: accept but mark unauthenticated.
+    return { ok: true, authenticated: false, configurationError: false };
   }
-  if (presented && presented === expected) return { ok: true, authenticated: true };
-  return { ok: false, authenticated: false };
+
+  if (presented && presented === expected) {
+    return { ok: true, authenticated: true, configurationError: false };
+  }
+
+  return { ok: false, authenticated: false, configurationError: false };
 }
 
 export async function POST(request: Request) {
   const auth = checkAuth(request);
+  if (auth.configurationError) {
+    return NextResponse.json(
+      { error: "Registry authentication is not configured" },
+      { status: 503 },
+    );
+  }
   if (!auth.ok) {
     return NextResponse.json(
       { error: "Invalid or missing registry token" },
