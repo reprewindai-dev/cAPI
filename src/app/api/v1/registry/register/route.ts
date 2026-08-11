@@ -8,8 +8,9 @@
  *
  * Auth: when CAPI_REGISTRY_TOKEN is set, a matching `Authorization: Bearer …`
  * is required; the registration is flagged `authenticated`. When the token is
- * unset, unauthenticated registration is permitted only outside production.
- * Production fails closed when registry authentication is not configured.
+ * unset, unauthenticated registration is permitted only in explicitly local,
+ * development, or test environments. Unset/unknown/staging/production values
+ * fail closed when registry authentication is not configured.
  */
 
 import { NextResponse } from "next/server";
@@ -37,6 +38,8 @@ type AuthCheck = {
   configurationError: boolean;
 };
 
+const UNAUTHENTICATED_REGISTRY_ENVIRONMENTS = new Set(["local", "development", "test"]);
+
 function normalizeCapabilities(entries: CapabilityEntry[] | undefined): RegisteredCapability[] {
   if (!entries) return [];
   return entries.map((entry) =>
@@ -49,10 +52,11 @@ function checkAuth(request: Request): AuthCheck {
   const header = request.headers.get("authorization")?.trim() ?? "";
   const presented = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
-    : header;
+    : "";
 
   if (!expected) {
-    if (process.env.NODE_ENV === "production") {
+    const environment = process.env.NODE_ENV?.trim().toLowerCase() ?? "";
+    if (!UNAUTHENTICATED_REGISTRY_ENVIRONMENTS.has(environment)) {
       return { ok: false, authenticated: false, configurationError: true };
     }
     // Explicit local/dev/test posture: accept but mark unauthenticated.
