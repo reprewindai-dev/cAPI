@@ -1,5 +1,5 @@
 import type { ProposedActionV1, DecisionV1, CappoAuthorizationReference } from "./outly-types";
-import { IntegrationUnavailable, requireIntegration } from "./integrations";
+import { IntegrationUnavailable, requireIntegration, AuthorityDenied } from "./integrations";
 
 /**
  * Deterministic Gate for Outly Shadow-Mode
@@ -85,7 +85,10 @@ async function requestCappoAuthorization(action: ProposedActionV1): Promise<Capp
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify(action),
   });
-  if (!response.ok) throw new IntegrationUnavailable(`CAPPO authorization failed with HTTP ${response.status}`);
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) throw new AuthorityDenied(`CAPPO authorization denied with HTTP ${response.status}`);
+    throw new IntegrationUnavailable(`CAPPO authorization failed with HTTP ${response.status}`);
+  }
   const body = await response.json() as { decision?: string; authorization_id?: string; lane?: 1 | 2 | 3; decision_hash?: string };
   if (body.decision !== "APPROVED" || !body.authorization_id) return null;
   return { authorization_id: body.authorization_id, lane: body.lane ?? 3, decision_hash: body.decision_hash };

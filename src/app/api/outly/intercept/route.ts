@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { evaluateProposedAction } from "@/lib/covenant/outly-gate";
-import { IntegrationUnavailable, postIntegration, requireIntegration } from "@/lib/covenant/integrations";
+import { IntegrationUnavailable, postIntegration, requireIntegration, AuthorityDenied } from "@/lib/covenant/integrations";
 import { proposedActionSchema, readJson } from "@/lib/covenant/validation";
 
 export async function POST(req: Request) {
@@ -26,6 +26,9 @@ export async function POST(req: Request) {
       evidence_reference: { evidence_id: anchored.event_id, entry_hash: anchored.event_hash, ledger: "pgl" },
     });
   } catch (error) {
+    if (error instanceof AuthorityDenied) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     const status = error instanceof IntegrationUnavailable ? 503 : 502;
     return NextResponse.json({ error: error instanceof Error ? error.message : "Outly decision failed" }, { status });
   }
