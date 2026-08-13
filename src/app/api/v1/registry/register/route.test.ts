@@ -15,19 +15,20 @@ function post(url: string, body: unknown, headers: Record<string, string> = {}) 
 
 const REGISTER_URL = "http://localhost/api/v1/registry/register";
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const mutableEnv = process.env as Record<string, string | undefined>;
 
 afterEach(() => {
   delete process.env.CAPI_REGISTRY_TOKEN;
   if (ORIGINAL_NODE_ENV === undefined) {
-    delete process.env.NODE_ENV;
+    delete mutableEnv.NODE_ENV;
   } else {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+    mutableEnv.NODE_ENV = ORIGINAL_NODE_ENV;
   }
 });
 
 describe("POST /api/v1/registry/register", () => {
   it("registers a service, mirrors executable capabilities, and records declared-only names", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     const res = await register(
       post(REGISTER_URL, {
         service_name: "lockerphycer-test-a",
@@ -62,7 +63,7 @@ describe("POST /api/v1/registry/register", () => {
   });
 
   it("rejects an invalid body", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     const res = await register(post(REGISTER_URL, { capabilities: ["x"] }));
     expect(res.status).toBe(400);
   });
@@ -71,9 +72,9 @@ describe("POST /api/v1/registry/register", () => {
     "fails closed without registry authentication when NODE_ENV=%s",
     async (environment) => {
       if (environment === undefined) {
-        delete process.env.NODE_ENV;
+        delete mutableEnv.NODE_ENV;
       } else {
-        process.env.NODE_ENV = environment;
+        mutableEnv.NODE_ENV = environment;
       }
       delete process.env.CAPI_REGISTRY_TOKEN;
       const serviceName = `svc-missing-token-${environment ?? "unset"}`;
@@ -90,7 +91,7 @@ describe("POST /api/v1/registry/register", () => {
   it.each(["local", "development", "test"])(
     "permits explicitly unauthenticated registration in %s only",
     async (environment) => {
-      process.env.NODE_ENV = environment;
+      mutableEnv.NODE_ENV = environment;
       delete process.env.CAPI_REGISTRY_TOKEN;
 
       const res = await register(post(REGISTER_URL, { service_name: `svc-${environment}` }));
@@ -100,7 +101,7 @@ describe("POST /api/v1/registry/register", () => {
   );
 
   it("enforces the registry token when configured and requires Bearer", async () => {
-    process.env.NODE_ENV = "production";
+    mutableEnv.NODE_ENV = "production";
     process.env.CAPI_REGISTRY_TOKEN = "s3cret-token";
 
     const denied = await register(
@@ -121,7 +122,7 @@ describe("POST /api/v1/registry/register", () => {
   });
 
   it("heartbeat refreshes a known service and 404s an unknown one", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     await register(post(REGISTER_URL, { service_name: "svc-hb" }));
 
     const ok = await heartbeat(post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-hb" }));
