@@ -62,7 +62,7 @@ async function probe(
       let fallbackPath = '/protocol.json';
       let fallbackHost = configured;
       if (configured.includes('/api/v1/mcp/gateway')) {
-        fallbackPath = '/api/v1/health';
+        fallbackPath = '/health';
         fallbackHost = configured.replace('/api/v1/mcp/gateway', '');
       }
 
