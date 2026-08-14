@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as register } from "./route";
 import { GET as services } from "../services/route";
 import { POST as heartbeat } from "../heartbeat/route";
 import { GET as state } from "@/app/api/state/route";
+import { getEngine } from "@/lib/covenant/engine";
 
 function post(url: string, body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(url, {
@@ -132,5 +133,51 @@ describe("POST /api/v1/registry/register", () => {
       post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-nope" }),
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("requires the registry bearer before heartbeating a registered service", async () => {
+    mutableEnv.NODE_ENV = "production";
+    process.env.CAPI_REGISTRY_TOKEN = "heartbeat-token";
+    const serviceName = "svc-heartbeat-auth";
+
+    const registered = await register(
+      post(REGISTER_URL, { service_name: serviceName }, { authorization: "Bearer heartbeat-token" }),
+    );
+    expect(registered.status).toBe(201);
+    const heartbeatSpy = vi.spyOn(getEngine(), "heartbeatService");
+
+    const missingBearer = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: serviceName }),
+    );
+    expect(missingBearer.status).toBe(401);
+
+    const wrongBearer = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: serviceName }, { authorization: "Bearer wrong" }),
+    );
+    expect(wrongBearer.status).toBe(401);
+    expect(heartbeatSpy).not.toHaveBeenCalled();
+
+    const allowed = await heartbeat(
+      post(
+        "http://localhost/api/v1/registry/heartbeat",
+        { service_name: serviceName },
+        { authorization: "Bearer heartbeat-token" },
+      ),
+    );
+    expect(allowed.status).toBe(200);
+    expect(heartbeatSpy).toHaveBeenCalledTimes(1);
+    heartbeatSpy.mockRestore();
+  });
+
+  it("fails closed before heartbeating when registry authentication is absent in production", async () => {
+    mutableEnv.NODE_ENV = "production";
+    delete process.env.CAPI_REGISTRY_TOKEN;
+
+    const response = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-heartbeat-no-config" }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Registry authentication is not configured" });
   });
 });

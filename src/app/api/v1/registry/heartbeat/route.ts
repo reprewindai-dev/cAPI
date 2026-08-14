@@ -8,11 +8,26 @@
 
 import { NextResponse } from "next/server";
 import { getEngine } from "@/lib/covenant/engine";
+import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 import { heartbeatSchema, readJson } from "@/lib/covenant/validation";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const auth = checkRegistryAuth(request);
+  if (auth.configurationError) {
+    return NextResponse.json(
+      { error: "Registry authentication is not configured" },
+      { status: 503 },
+    );
+  }
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: "Invalid or missing registry token" },
+      { status: 401 },
+    );
+  }
+
   const parsed = await readJson(request, heartbeatSchema);
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
