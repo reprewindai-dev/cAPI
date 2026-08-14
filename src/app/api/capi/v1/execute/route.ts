@@ -1,47 +1,21 @@
 import { NextResponse } from "next/server";
-import { IntegrationUnavailable, postIntegration, requireIntegration } from "@/lib/covenant/integrations";
-import { executeInputSchema, readJson } from "@/lib/covenant/validation";
-import { verifySnapshot } from "@/lib/mcp/snapshot";
 
-export async function POST(request: Request) {
-  const parsed = await readJson(request, executeInputSchema);
-  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
-
-  try {
-    const rawCappoUrl = process.env.CAPPO_EXECUTE_URL
-      || (process.env.CAPPO_BACKEND_URL ? `${process.env.CAPPO_BACKEND_URL}/v1/exec` : undefined);
-    const cappoUrl = requireIntegration("CAPPO execution", rawCappoUrl);
-    const body = parsed.data;
-    if (body.reauthorize_required === true || body.capability_version_mismatch === true) {
-      return NextResponse.json({
-        connection_id: body.connection_id,
-        status: "quarantined",
-        error: { code: "CONSEQUENTIAL_REAUTHORIZATION_REQUIRED", message: "Route back to CAPPO for reauthorization" },
-      }, { status: 409 });
-    }
-
-    const snapshotHash = request.headers.get("X-Capability-Hash") || body.snapshot_hash;
-    const snapshotSignature = request.headers.get("X-Capability-Signature") || body.snapshot_signature;
-    if (!snapshotHash || !snapshotSignature || !verifySnapshot(snapshotHash, snapshotSignature)) {
-      return NextResponse.json({ error: "Missing or invalid capability snapshot signature" }, { status: 403 });
-    }
-
-    const cappoApiKey = requireIntegration("CAPPO API key", process.env.CAPPO_API_KEY);
-    const result = await postIntegration(cappoUrl, body, {
-      "x-capability-hash": snapshotHash,
-      "x-capability-signature": snapshotSignature,
-      "x-api-key": cappoApiKey,
-    });
-    return NextResponse.json(result);
-  } catch (error) {
-    const status = error instanceof IntegrationUnavailable ? 503 : 502;
-    if (status === 503) {
-      return NextResponse.json({
-        status: "degraded",
-        mode: "read_only",
-        error: error instanceof Error ? error.message : "CAPPO execution failed",
-      }, { status });
-    }
-    return NextResponse.json({ error: error instanceof Error ? error.message : "CAPPO execution failed" }, { status });
-  }
+/**
+ * Legacy cAPI execution proxy.
+ *
+ * cAPI is the MCP/discovery boundary. It must not expose a second public
+ * consequence-bearing path; callers execute only through CAPPO's /v1/exec
+ * authority boundary. This is deliberately a clear migration response rather
+ * than an HTTP redirect because the two contracts have different security
+ * semantics.
+ */
+export async function POST(_request: Request) {
+  return NextResponse.json(
+    {
+      error: "LEGACY_EXECUTION_ENTRYPOINT_RETIRED",
+      detail: "cAPI discovery does not grant execution authority. Use the governed /v1/exec boundary.",
+      execution_entrypoint: "/v1/exec",
+    },
+    { status: 410 },
+  );
 }

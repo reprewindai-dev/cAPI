@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 
 describe("cAPI and CAPPO-facing route validation", () => {
-  it("rejects oversized and unknown cAPI execute input", async () => {
+  it("retires legacy cAPI execution regardless of input shape", async () => {
     const response = await execute(jsonRequest("http://localhost/api/capi/v1/execute", {
       connection_id: "c",
       agent_id: "a",
@@ -73,7 +73,7 @@ describe("cAPI and CAPPO-facing route validation", () => {
       unexpected: true,
     }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(410);
   });
 
   it("rejects malformed Outly proposed actions and outcomes", async () => {
@@ -113,13 +113,13 @@ describe("cAPI and CAPPO-facing route validation", () => {
 });
 
 describe("fail-closed integration boundaries", () => {
-  it("does not issue a fabricated execute success when CAPPO is unavailable", async () => {
+  it("does not proxy legacy execution when CAPPO is unavailable", async () => {
     const response = await execute(jsonRequest("http://localhost/api/capi/v1/execute", {
       connection_id: "conn-1", agent_id: "agent-1", capability_id: "cap-1", action: "read", input: {},
       snapshot_hash: "hash", snapshot_signature: "signature",
     }));
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(410);
     expect(await response.json()).not.toHaveProperty("evidence_hash");
   });
 

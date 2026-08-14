@@ -35,16 +35,16 @@ describe("POST /api/capi/v1/execute", () => {
     else process.env.CAPPO_API_KEY = originalApiKey;
   });
 
-  it("rejects oversized bounded input before any integration call", async () => {
+  it("retires the legacy route before parsing or making any integration call", async () => {
     const response = await POST(new Request("http://localhost/api/capi/v1/execute", {
       method: "POST",
       body: JSON.stringify({ ...validProxyBody, action: "a".repeat(257) }),
       headers: { "content-type": "application/json" },
     }));
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(410);
   });
 
-  it("fails closed before any CAPPO request when CAPPO_API_KEY is missing", async () => {
+  it("rejects the legacy public execution proxy without contacting CAPPO", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const response = await POST(new Request("http://localhost/api/capi/v1/execute", {
@@ -52,24 +52,20 @@ describe("POST /api/capi/v1/execute", () => {
       body: JSON.stringify(validProxyBody),
       headers: { "content-type": "application/json" },
     }));
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(410);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("routes MCP capabilities through CAPPO instead of executing them locally", async () => {
+  it("does not make a second public execution entrypoint for MCP capabilities", async () => {
     process.env.CAPPO_API_KEY = "test-key";
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ execution_id: "exec-1" }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    }));
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const response = await POST(new Request("http://localhost/api/capi/v1/execute", {
       method: "POST",
       body: JSON.stringify({ ...validProxyBody, capability_id: "mcp::tool-1" }),
       headers: { "content-type": "application/json" },
     }));
-    expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://cappo.test/v1/exec");
+    expect(response.status).toBe(410);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
