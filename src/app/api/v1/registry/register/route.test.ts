@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as register } from "./route";
 import { GET as services } from "../services/route";
 import { POST as heartbeat } from "../heartbeat/route";
 import { GET as state } from "@/app/api/state/route";
+import { getEngine } from "@/lib/covenant/engine";
 
 function post(url: string, body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(url, {
@@ -15,19 +16,20 @@ function post(url: string, body: unknown, headers: Record<string, string> = {}) 
 
 const REGISTER_URL = "http://localhost/api/v1/registry/register";
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const mutableEnv = process.env as Record<string, string | undefined>;
 
 afterEach(() => {
   delete process.env.CAPI_REGISTRY_TOKEN;
   if (ORIGINAL_NODE_ENV === undefined) {
-    delete process.env.NODE_ENV;
+    delete mutableEnv.NODE_ENV;
   } else {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+    mutableEnv.NODE_ENV = ORIGINAL_NODE_ENV;
   }
 });
 
 describe("POST /api/v1/registry/register", () => {
   it("registers a service, mirrors executable capabilities, and records declared-only names", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     const res = await register(
       post(REGISTER_URL, {
         service_name: "lockerphycer-test-a",
@@ -62,7 +64,7 @@ describe("POST /api/v1/registry/register", () => {
   });
 
   it("rejects an invalid body", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     const res = await register(post(REGISTER_URL, { capabilities: ["x"] }));
     expect(res.status).toBe(400);
   });
@@ -71,9 +73,9 @@ describe("POST /api/v1/registry/register", () => {
     "fails closed without registry authentication when NODE_ENV=%s",
     async (environment) => {
       if (environment === undefined) {
-        delete process.env.NODE_ENV;
+        delete mutableEnv.NODE_ENV;
       } else {
-        process.env.NODE_ENV = environment;
+        mutableEnv.NODE_ENV = environment;
       }
       delete process.env.CAPI_REGISTRY_TOKEN;
       const serviceName = `svc-missing-token-${environment ?? "unset"}`;
@@ -90,7 +92,7 @@ describe("POST /api/v1/registry/register", () => {
   it.each(["local", "development", "test"])(
     "permits explicitly unauthenticated registration in %s only",
     async (environment) => {
-      process.env.NODE_ENV = environment;
+      mutableEnv.NODE_ENV = environment;
       delete process.env.CAPI_REGISTRY_TOKEN;
 
       const res = await register(post(REGISTER_URL, { service_name: `svc-${environment}` }));
@@ -100,7 +102,7 @@ describe("POST /api/v1/registry/register", () => {
   );
 
   it("enforces the registry token when configured and requires Bearer", async () => {
-    process.env.NODE_ENV = "production";
+    mutableEnv.NODE_ENV = "production";
     process.env.CAPI_REGISTRY_TOKEN = "s3cret-token";
 
     const denied = await register(
@@ -121,7 +123,7 @@ describe("POST /api/v1/registry/register", () => {
   });
 
   it("heartbeat refreshes a known service and 404s an unknown one", async () => {
-    process.env.NODE_ENV = "test";
+    mutableEnv.NODE_ENV = "test";
     await register(post(REGISTER_URL, { service_name: "svc-hb" }));
 
     const ok = await heartbeat(post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-hb" }));
@@ -131,5 +133,51 @@ describe("POST /api/v1/registry/register", () => {
       post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-nope" }),
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("requires the registry bearer before heartbeating a registered service", async () => {
+    mutableEnv.NODE_ENV = "production";
+    process.env.CAPI_REGISTRY_TOKEN = "heartbeat-token";
+    const serviceName = "svc-heartbeat-auth";
+
+    const registered = await register(
+      post(REGISTER_URL, { service_name: serviceName }, { authorization: "Bearer heartbeat-token" }),
+    );
+    expect(registered.status).toBe(201);
+    const heartbeatSpy = vi.spyOn(getEngine(), "heartbeatService");
+
+    const missingBearer = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: serviceName }),
+    );
+    expect(missingBearer.status).toBe(401);
+
+    const wrongBearer = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: serviceName }, { authorization: "Bearer wrong" }),
+    );
+    expect(wrongBearer.status).toBe(401);
+    expect(heartbeatSpy).not.toHaveBeenCalled();
+
+    const allowed = await heartbeat(
+      post(
+        "http://localhost/api/v1/registry/heartbeat",
+        { service_name: serviceName },
+        { authorization: "Bearer heartbeat-token" },
+      ),
+    );
+    expect(allowed.status).toBe(200);
+    expect(heartbeatSpy).toHaveBeenCalledTimes(1);
+    heartbeatSpy.mockRestore();
+  });
+
+  it("fails closed before heartbeating when registry authentication is absent in production", async () => {
+    mutableEnv.NODE_ENV = "production";
+    delete process.env.CAPI_REGISTRY_TOKEN;
+
+    const response = await heartbeat(
+      post("http://localhost/api/v1/registry/heartbeat", { service_name: "svc-heartbeat-no-config" }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Registry authentication is not configured" });
   });
 });

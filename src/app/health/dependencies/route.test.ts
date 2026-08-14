@@ -63,7 +63,7 @@ describe('GET /health/dependencies', () => {
     await GET();
 
     const fallback = fetchMock.mock.calls.find(([url]) =>
-      String(url) === 'http://byos:8088/api/v1/health',
+      String(url) === 'http://byos:8088/health',
     );
     expect(fallback).toBeDefined();
     expect(new Headers(fallback?.[1]?.headers).get('host')).toBe('api.veklom.com');

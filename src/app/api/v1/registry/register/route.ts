@@ -15,6 +15,7 @@
 
 import { NextResponse } from "next/server";
 import { getEngine } from "@/lib/covenant/engine";
+import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 import { readJson, serviceRegistrationSchema } from "@/lib/covenant/validation";
 import type { RegisteredCapability } from "@/lib/covenant/service-registry";
 
@@ -32,14 +33,6 @@ type CapabilityEntry =
       requires_approval?: boolean;
     };
 
-type AuthCheck = {
-  ok: boolean;
-  authenticated: boolean;
-  configurationError: boolean;
-};
-
-const UNAUTHENTICATED_REGISTRY_ENVIRONMENTS = new Set(["local", "development", "test"]);
-
 function normalizeCapabilities(entries: CapabilityEntry[] | undefined): RegisteredCapability[] {
   if (!entries) return [];
   return entries.map((entry) =>
@@ -47,31 +40,8 @@ function normalizeCapabilities(entries: CapabilityEntry[] | undefined): Register
   );
 }
 
-function checkAuth(request: Request): AuthCheck {
-  const expected = process.env.CAPI_REGISTRY_TOKEN?.trim();
-  const header = request.headers.get("authorization")?.trim() ?? "";
-  const presented = header.toLowerCase().startsWith("bearer ")
-    ? header.slice(7).trim()
-    : "";
-
-  if (!expected) {
-    const environment = process.env.NODE_ENV?.trim().toLowerCase() ?? "";
-    if (!UNAUTHENTICATED_REGISTRY_ENVIRONMENTS.has(environment)) {
-      return { ok: false, authenticated: false, configurationError: true };
-    }
-    // Explicit local/dev/test posture: accept but mark unauthenticated.
-    return { ok: true, authenticated: false, configurationError: false };
-  }
-
-  if (presented && presented === expected) {
-    return { ok: true, authenticated: true, configurationError: false };
-  }
-
-  return { ok: false, authenticated: false, configurationError: false };
-}
-
 export async function POST(request: Request) {
-  const auth = checkAuth(request);
+  const auth = checkRegistryAuth(request);
   if (auth.configurationError) {
     return NextResponse.json(
       { error: "Registry authentication is not configured" },
