@@ -11,16 +11,18 @@
  * MCPBridge.execute() — signature is identical.
  */
 
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { CapabilityIdentity, CovenantRequest, CapabilityMethod } from "./types";
-import { generateNonce, hmacHashObject } from "./crypto";
+import {
+  canonicalJson,
+  signCappoExecutionRequest,
+  signCanonicalCapiEnvelope,
+} from "./http-message-signatures";
 
 // ---------------------------------------------------------------------------
 // Config — pulled from env so nothing is hardcoded
 // ---------------------------------------------------------------------------
 
-const BYOS_MCP_GATEWAY = process.env.BYOS_MCP_GATEWAY_URL ?? "";
-const BYOS_API_KEY      = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const EXECUTION_TIMEOUT = Number(process.env.COVENANT_EXEC_TIMEOUT_MS ?? 10_000);
 const ALLOW_LOCAL_EXECUTION = process.env.COVENANT_ALLOW_LOCAL_EXECUTION === "true";
 
@@ -39,30 +41,6 @@ export interface BridgeResult {
 }
 
 // ---------------------------------------------------------------------------
-// MCP tool call payload (JSON-RPC 2.0 over HTTP — Streamable MCP)
-// ---------------------------------------------------------------------------
-
-interface MCPToolCallPayload {
-  jsonrpc: "2.0";
-  id:       string;
-  method:   "tools/call";
-  params: {
-    name:      string;
-    arguments: Record<string, unknown>;
-  };
-}
-
-interface MCPToolCallResult {
-  jsonrpc: "2.0";
-  id:      string;
-  result?: {
-    content: Array<{ type: string; text?: string; [k: string]: unknown }>;
-    isError?: boolean;
-  };
-  error?: { code: number; message: string; data?: unknown };
-}
-
-// ---------------------------------------------------------------------------
 // The bridge
 // ---------------------------------------------------------------------------
 
@@ -71,9 +49,9 @@ export class MCPBridge {
    * Execute a capability through the appropriate transport.
    *
    * Routing logic:
-   *   mcp://      → Veklom BYOS MCP gateway  (JSON-RPC 2.0 tools/call)
-   *   http://     → Direct HTTP call (for REST partner capabilities)
-   *   https://    → Direct HTTPS call
+   *   mcp://      → CAPPO /v1/exec (CAPPO selects an authorized provider)
+   *   http://     → CAPPO /v1/exec
+   *   https://    → CAPPO /v1/exec
    *   local://    → In-process stub (development / test only)
    */
   static async execute(
@@ -87,9 +65,7 @@ export class MCPBridge {
       let output: Record<string, unknown>;
       let retried = 0;
 
-      if (method === "mcp") {
-        ({ output, retried } = await MCPBridge.callMCPGateway(capability, request));
-      } else if (method === "http" || method === "https") {
+      if (method === "mcp" || method === "http" || method === "https") {
         ({ output, retried } = await MCPBridge.callHTTP(capability, request));
       } else if (ALLOW_LOCAL_EXECUTION) {
         throw new Error("local capability execution is not an evidence-backed integration");
@@ -125,106 +101,7 @@ export class MCPBridge {
   }
 
   // -------------------------------------------------------------------------
-  // MCP Gateway call  (Streamable MCP — JSON-RPC 2.0 over POST)
-  // -------------------------------------------------------------------------
-
-  private static async callMCPGateway(
-    capability: CapabilityIdentity,
-    request:    CovenantRequest,
-  ): Promise<{ output: Record<string, unknown>; retried: number }> {
-    if (!BYOS_MCP_GATEWAY || !BYOS_API_KEY) {
-      throw new Error("BYOS MCP integration is not configured");
-    }
-    const toolName = capability.endpoint.replace("mcp://", ""); // e.g. "github.create_issue"
-
-    const payload: MCPToolCallPayload = {
-      jsonrpc: "2.0",
-      id:      randomUUID(),
-      method:  "tools/call",
-      params: {
-        name:      toolName,
-        arguments: {
-          ...request.input,
-          _covenant: {
-            connection_id: request.connection_id,
-            agent_id:      request.agent_id,
-            trace_id:      request.context.trace_id,
-            timestamp:     request.timestamp,
-          },
-        },
-      },
-    };
-
-    let retried = 0;
-    let lastErr: Error | null = null;
-
-    // One retry on 5xx / network error
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
-
-        const headers: Record<string, string> = {
-          "Content-Type":  "application/json",
-          "X-API-Key":     BYOS_API_KEY,
-          "X-Covenant-Id": request.connection_id,
-          "X-Agent-Id":    request.agent_id,
-          "X-Trace-Id":    request.context.trace_id ?? "",
-        };
-        if (BYOS_API_KEY) {
-          headers["Authorization"] = BYOS_API_KEY.startsWith("Bearer ")
-            ? BYOS_API_KEY
-            : `Bearer ${BYOS_API_KEY}`;
-        }
-
-        const res = await fetch(BYOS_MCP_GATEWAY, {
-          method:  "POST",
-          headers,
-          body:   JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-
-        if (!res.ok && res.status >= 500 && attempt === 0) {
-          retried = 1;
-          continue;
-        }
-
-        const json = (await res.json()) as MCPToolCallResult;
-
-        if (json.error) {
-          throw new Error(`MCP error ${json.error.code}: ${json.error.message}`);
-        }
-
-        // Flatten MCP content array into a plain output map
-        const content = json.result?.content ?? [];
-        const text    = content.find((c) => c.type === "text")?.text;
-        let parsed: Record<string, unknown> = {};
-        if (text) {
-          try   { parsed = JSON.parse(text); }
-          catch { parsed = { text }; }
-        }
-
-        return {
-          output: {
-            ok:           !(json.result?.isError),
-            tool:         toolName,
-            content_type: content[0]?.type ?? "text",
-            ...parsed,
-          },
-          retried,
-        };
-      } catch (err) {
-        lastErr = err instanceof Error ? err : new Error(String(err));
-        if (attempt === 0) retried = 1;
-      }
-    }
-
-    throw lastErr ?? new Error("MCP gateway unreachable");
-  }
-
-  // -------------------------------------------------------------------------
-  // HTTP/HTTPS direct call  (for REST partner capabilities)
+  // HTTP/HTTPS capability request through CAPPO (never direct provider execution)
   // -------------------------------------------------------------------------
 
   private static async callHTTP(
@@ -232,47 +109,60 @@ export class MCPBridge {
     request:    CovenantRequest,
   ): Promise<{ output: Record<string, unknown>; retried: number }> {
     const cappoKey = process.env.CAPPO_INTERNAL_EXEC_KEY?.trim();
-    if (!cappoKey) throw new Error("CAPPO_INTERNAL_EXEC_KEY is not configured");
+    const cappoEndpoint = process.env.CAPPO_EXECUTION_URL?.trim();
+    const signingKey = process.env.COVENANT_HTTP_SIGNING_PRIVATE_KEY?.trim();
+    const signingKeyId = process.env.COVENANT_HTTP_SIGNING_KEY_ID?.trim();
+    if (!cappoKey || !cappoEndpoint || !signingKey || !signingKeyId) {
+      throw new Error("CAPPO execution integration is not configured");
+    }
     const controller = new AbortController();
     const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
 
-    // Reshape the payload into the required CAPPO contract
-    const nonce = generateNonce();
-    const envelopeData = {
-      covenant_id: request.connection_id,
-      timestamp: new Date().toISOString(),
+    // cAPI provides identity and capability resolution only. CAPPO receives
+    // the consequence request and remains the sole semantic authority. No
+    // directive/grant is fabricated here; an incomplete authority request is
+    // intentionally denied by CAPPO rather than sent to the provider.
+    const payloadWithoutSecurity = {
+      prompt: request.input?.prompt ?? "",
+      agent_id: request.agent_id,
+      pgl_id: request.agent_id,
+      workspace_id: (request.context.user_context?.workspace_id as string | undefined) ?? "default",
+      tenant_id: "default",
+      delegation_depth: 0,
+      budget_approved_cents: 0,
+      action_cost_cents: 0,
+      scope: { tools: [capability.capability_id] },
+      genome_hash: null,
+      constitution_hash: null,
+      plan_hash: null,
+      action: request.action,
+      directive: null,
+      risk_tier: null,
+      execution_mode: "live",
+    };
+    const nonce = randomUUID();
+    const securityPayload = {
+      actor_id: request.agent_id,
+      action: request.action || "execute",
+      data_hash: createHashHex(canonicalJson(payloadWithoutSecurity)),
       nonce,
     };
-    
-    // Sign the envelope using cAPI internal secret
-    const signature = hmacHashObject(envelopeData, nonce);
-
     const cappoPayload = {
-      prompt: request.input?.prompt ?? "",
-      workspace: (request.context as any)?.workspace_id ?? (request.context?.user_context as any)?.workspace_id ?? "unknown",
-      budget: { 
-        agent_id: request.agent_id,
-        capability: capability.capability_id 
-      },
-      governance_context: { 
-        trace_id: request.context?.trace_id ?? "",
-        policy_applied: "default",
-      },
-      security_envelope: {
-        ...envelopeData,
-        signature
-      }
+      ...payloadWithoutSecurity,
+      security: { nonce, signature: signCanonicalCapiEnvelope(securityPayload, signingKey) },
     };
+    const serialized = JSON.stringify(cappoPayload);
 
-    const res = await fetch(capability.endpoint, {
+    const res = await fetch(cappoEndpoint, {
       method:  "POST",
       headers: {
         "Content-Type":  "application/json",
         "X-Covenant-Id": request.connection_id,
         "X-Agent-Id":    request.agent_id,
         "X-API-Key":     cappoKey,
+        ...signCappoExecutionRequest(cappoEndpoint, serialized, signingKey, signingKeyId),
       },
-      body:   JSON.stringify(cappoPayload),
+      body:   serialized,
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -281,4 +171,8 @@ export class MCPBridge {
     return { output: { ok: res.ok, status: res.status, ...body }, retried: 0 };
   }
 
+}
+
+function createHashHex(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
