@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngine } from "@/lib/covenant/engine";
+import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ service_name: string }> };
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
+  const auth = checkRegistryAuth(request);
+  if (auth.configurationError) {
+    return NextResponse.json(
+      { error: "Registry authentication is not configured" },
+      { status: 503 },
+    );
+  }
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: "Invalid or missing registry token" },
+      { status: 401 },
+    );
+  }
   const { service_name } = await context.params;
   const updated = await getEngine().heartbeatService(service_name);
   if (!updated) {
