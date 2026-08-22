@@ -97,25 +97,9 @@ class McpOrchestrator {
   }
 
   async executeTool(capabilityId: string, args: Record<string, unknown>): Promise<any> {
-    // capabilityId looks like: "mcp::server_id::tool_name"
-    const parts = capabilityId.split("::");
-    if (parts.length !== 3 || parts[0] !== "mcp") {
-      throw new Error(`Invalid MCP capability ID: ${capabilityId}`);
-    }
-    const serverId = parts[1];
-    const toolName = parts[2];
-
-    const instance = this.instances.get(serverId);
-    if (!instance || instance.status !== "connected" || !instance.client) {
-      throw new Error(`MCP server ${serverId} is not connected`);
-    }
-
-    // Use the official SDK to execute the tool natively
-    const result = await instance.client.callTool({
-      name: toolName,
-      arguments: args,
-    });
-    return result;
+    void capabilityId;
+    void args;
+    throw new Error("Direct native MCP execution is disabled; submit consequence requests through CAPPO");
   }
 
   getInstances(): McpServerInstance[] {

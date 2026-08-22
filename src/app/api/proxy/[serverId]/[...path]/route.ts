@@ -12,8 +12,8 @@
  * To call a dynamic SaaS tool WITH full governance:
  *   POST /api/request  { agent_id, capability_id: "dynamic::air-intercept::...", ... }
  *
- * Direct proxy calls (bypassing governance) are intentionally allowed only
- * for internal service-to-service traffic authenticated by X-API-Key.
+ * Direct proxy calls are denied. CAPPO may forward an already-admitted
+ * execution using its dedicated proxy credential and execution identifier.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -21,7 +21,6 @@ import { toolRegistry } from "@/lib/covenant/tool-registry";
 
 export const dynamic = "force-dynamic";
 
-const INTERNAL_API_KEY = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 15_000);
 
 async function handleProxy(
@@ -29,6 +28,14 @@ async function handleProxy(
   serverId: string,
   pathParts: string[],
 ): Promise<NextResponse> {
+  const cappoProxyKey = process.env.CAPPO_PROXY_KEY?.trim();
+  if (!cappoProxyKey) {
+    return NextResponse.json({ error: "CAPPO proxy admission is not configured" }, { status: 503 });
+  }
+  if (req.headers.get("x-api-key") !== cappoProxyKey || !req.headers.get("x-cappo-execution-id")?.trim()) {
+    return NextResponse.json({ error: "Verified CAPPO admission required" }, { status: 401 });
+  }
+
   const server = toolRegistry.getServer(serverId);
   if (!server) {
     return NextResponse.json(
@@ -43,7 +50,7 @@ async function handleProxy(
   // Forward all original headers except host, strip Next.js internals
   const forwardHeaders = new Headers();
   for (const [key, value] of req.headers.entries()) {
-    if (["host", "x-forwarded-host", "x-forwarded-proto"].includes(key.toLowerCase())) continue;
+    if (["host", "x-forwarded-host", "x-forwarded-proto", "x-api-key"].includes(key.toLowerCase())) continue;
     forwardHeaders.set(key, value);
   }
 
