@@ -49,6 +49,51 @@ describe("API default-deny middleware", () => {
     expect(response.status).toBe(401);
   });
 
+  it("does not treat an admin token as an internal credential", async () => {
+    process.env.COVENANT_ADMIN_TOKEN = "admin-secret";
+    process.env.BYOS_INTERNAL_API_KEY = "internal-secret";
+
+    const response = await middleware(
+      request("/api/request", "POST", {
+        authorization: "Bearer admin-secret",
+      }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("allows authenticated reads with either configured credential lane", async () => {
+    process.env.COVENANT_ADMIN_TOKEN = "admin-secret";
+    process.env.BYOS_INTERNAL_API_KEY = "internal-secret";
+
+    const adminResponse = await middleware(
+      request("/api/state", "GET", { authorization: "Bearer admin-secret" }),
+    );
+    const internalResponse = await middleware(
+      request("/api/state", "GET", { "x-api-key": "internal-secret" }),
+    );
+
+    expect(adminResponse.headers.get("x-middleware-next")).toBe("1");
+    expect(internalResponse.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("allows authenticated reads with only the internal credential configured", async () => {
+    delete process.env.COVENANT_ADMIN_TOKEN;
+    process.env.BYOS_INTERNAL_API_KEY = "internal-secret";
+
+    const response = await middleware(
+      request("/api/state", "GET", { "x-api-key": "internal-secret" }),
+    );
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("requires one configured credential for authenticated reads", async () => {
+    const response = await middleware(request("/api/state", "GET"));
+
+    expect(response.status).toBe(503);
+  });
+
   it("fails closed when an authenticated lane is not configured", async () => {
     const response = await middleware(request("/api/mcp/servers", "GET"));
 
@@ -71,6 +116,17 @@ describe("API default-deny middleware", () => {
     process.env.BYOS_INTERNAL_API_KEY = "internal-secret";
 
     const response = await middleware(request("/api/route-added-without-admission"));
+
+    expect(response.status).toBe(404);
+  });
+
+  it("does not open unregistered nested paths under dynamic route prefixes", async () => {
+    process.env.COVENANT_ADMIN_TOKEN = "admin-secret";
+    process.env.BYOS_INTERNAL_API_KEY = "internal-secret";
+
+    const response = await middleware(
+      request("/api/v1/registry/services/example/unregistered"),
+    );
 
     expect(response.status).toBe(404);
   });
