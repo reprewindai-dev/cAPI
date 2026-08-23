@@ -1,21 +1,11 @@
 /**
  * Transparent Proxy — /api/proxy/{serverId}/{...path}
  *
- * Intercepts outbound tool executions from agents, stamps Covenant tracing
- * headers, and forwards the request to the registered SaaS base_url.
- *
- * NOTE: Governance (all 9 phases) already ran upstream via /api/request →
- * CovenantRuntime.process() → Phase 6 MCPBridge.callHTTP() → this proxy.
- * This endpoint is the final forwarder. It does not re-run governance —
- * it only adds observability headers and routes the payload.
- *
- * To call a dynamic SaaS tool WITH full governance:
- *   POST /api/request  { agent_id, capability_id: "dynamic::air-intercept::...", ... }
- *
- * Direct proxy calls (bypassing governance) are intentionally allowed only
- * for internal service-to-service traffic authenticated by X-API-Key.
+ * Direct calls bypass the normal CAPPO-governed request path, so this route
+ * is strictly internal service-to-service and fail-closed on X-API-Key.
  */
 
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { toolRegistry } from "@/lib/covenant/tool-registry";
 
@@ -24,15 +14,43 @@ export const dynamic = "force-dynamic";
 const INTERNAL_API_KEY = process.env.BYOS_INTERNAL_API_KEY ?? "";
 const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 15_000);
 
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function requireInternalApiKey(req: NextRequest): NextResponse | null {
+  if (!INTERNAL_API_KEY) {
+    return NextResponse.json(
+      { error: "BYOS_INTERNAL_API_KEY is not configured; direct proxy is locked" },
+      { status: 503 },
+    );
+  }
+
+  const provided = req.headers.get("x-api-key")?.trim() ?? "";
+  if (!safeEqual(provided, INTERNAL_API_KEY)) {
+    return NextResponse.json(
+      { error: "Invalid or missing internal API key" },
+      { status: 401 },
+    );
+  }
+
+  return null;
+}
+
 async function handleProxy(
   req: NextRequest,
   serverId: string,
   pathParts: string[],
 ): Promise<NextResponse> {
+  const authError = requireInternalApiKey(req);
+  if (authError) return authError;
+
   const server = toolRegistry.getServer(serverId);
   if (!server) {
     return NextResponse.json(
-      { error: `Unknown server: ${serverId}. Register it via POST /api/mcp/servers first.` },
+      { error: `Unknown server: ${serverId}. Register it through the authenticated MCP registry first.` },
       { status: 404 },
     );
   }
@@ -40,14 +58,21 @@ async function handleProxy(
   const path = `/${pathParts.join("/")}`;
   const targetUrl = `${server.base_url}${path}${req.nextUrl.search}`;
 
-  // Forward all original headers except host, strip Next.js internals
+  // Forward caller-supplied upstream headers, but never leak the cAPI internal
+  // credential or reverse-proxy internals to the registered destination.
   const forwardHeaders = new Headers();
+  const blockedHeaders = new Set([
+    "host",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-api-key",
+    "x-covenant-admin-token",
+  ]);
   for (const [key, value] of req.headers.entries()) {
-    if (["host", "x-forwarded-host", "x-forwarded-proto"].includes(key.toLowerCase())) continue;
+    if (blockedHeaders.has(key.toLowerCase())) continue;
     forwardHeaders.set(key, value);
   }
 
-  // Stamp Covenant observability headers
   forwardHeaders.set("X-Covenant-Proxy", "cAPI/1.0");
   forwardHeaders.set("X-Server-Id", serverId);
   forwardHeaders.set("X-Forwarded-Path", path);
@@ -72,7 +97,6 @@ async function handleProxy(
     const responseBody = await upstream.arrayBuffer();
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
-      // Strip hop-by-hop headers
       if (["transfer-encoding", "connection", "keep-alive"].includes(key.toLowerCase())) return;
       responseHeaders.set(key, value);
     });
