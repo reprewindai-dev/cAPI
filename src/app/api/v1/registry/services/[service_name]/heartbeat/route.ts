@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngine } from "@/lib/covenant/engine";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,11 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ service_name: string }> };
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const internalAuth = requireInternalApiKey(request);
+  if (!internalAuth.ok) {
+    return NextResponse.json({ error: internalAuth.error }, { status: internalAuth.status });
+  }
+
   const auth = checkRegistryAuth(request);
   if (auth.configurationError) {
     return NextResponse.json(

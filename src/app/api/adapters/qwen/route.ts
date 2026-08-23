@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
 // Enterprise-grade Qwen CLI Home-Directory Adapter
 export async function POST(req: NextRequest) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = await req.json();
     

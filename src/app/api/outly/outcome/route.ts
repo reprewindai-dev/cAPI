@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import { IntegrationUnavailable, postIntegration, requireIntegration, AuthorityDenied } from "@/lib/covenant/integrations";
 import { outcomeSchema, readJson } from "@/lib/covenant/validation";
 
 export async function POST(req: Request) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const parsed = await readJson(req, outcomeSchema);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 

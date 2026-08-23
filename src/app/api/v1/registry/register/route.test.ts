@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as register } from "./route";
 import { GET as services } from "../services/route";
@@ -9,14 +9,19 @@ import { getEngine } from "@/lib/covenant/engine";
 function post(url: string, body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(url, {
     method: "POST",
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", "x-api-key": "test-internal-key", ...headers },
     body: JSON.stringify(body),
   });
 }
 
 const REGISTER_URL = "http://localhost/api/v1/registry/register";
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const ORIGINAL_INTERNAL_KEY = process.env.BYOS_INTERNAL_API_KEY;
 const mutableEnv = process.env as Record<string, string | undefined>;
+
+beforeEach(() => {
+  mutableEnv.BYOS_INTERNAL_API_KEY = "test-internal-key";
+});
 
 afterEach(() => {
   delete process.env.CAPI_REGISTRY_TOKEN;
@@ -25,6 +30,8 @@ afterEach(() => {
   } else {
     mutableEnv.NODE_ENV = ORIGINAL_NODE_ENV;
   }
+  if (ORIGINAL_INTERNAL_KEY === undefined) delete mutableEnv.BYOS_INTERNAL_API_KEY;
+  else mutableEnv.BYOS_INTERNAL_API_KEY = ORIGINAL_INTERNAL_KEY;
 });
 
 describe("POST /api/v1/registry/register", () => {

@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 
-export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const auth = requireInternalApiKey(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const params = await context.params;
   const base = process.env.PGL_LEDGER_URL?.trim();
   if (!base) return NextResponse.json({ error: "PGL evidence integration unavailable" }, { status: 503 });

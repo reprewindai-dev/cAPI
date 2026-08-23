@@ -10,7 +10,7 @@ import { POST as request } from "@/app/api/request/route";
 function jsonRequest(url: string, body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(url, {
     method: "POST",
-    headers: { "content-type": "application/json", ...headers },
+    headers: { "content-type": "application/json", "x-api-key": "test-internal-key", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -58,6 +58,7 @@ const outcomePayload = {
 
 beforeEach(() => {
   process.env.COVENANT_ADMIN_TOKEN = "test-admin-token";
+  process.env.BYOS_INTERNAL_API_KEY = "test-internal-key";
   delete process.env.PGL_LEDGER_URL;
   delete process.env.CAPPO_DECISION_URL;
   delete process.env.CAPPO_EXECUTE_URL;

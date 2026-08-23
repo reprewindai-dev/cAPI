@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 
 // Keep this alive for SSE
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 

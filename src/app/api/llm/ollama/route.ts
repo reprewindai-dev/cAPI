@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 
 // Enterprise-grade Ollama zero-config proxy for Qwen
 // Defaults to the local Hetzner Coolify host networking, or localhost as fallback
@@ -6,6 +7,9 @@ const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
 
 export async function POST(req: NextRequest) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = await req.json();
     const prompt = body.prompt;

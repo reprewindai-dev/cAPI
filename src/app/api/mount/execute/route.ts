@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import { getMountRegistry } from "@/lib/covenant/capability-mount";
 import type { CovenantRequest } from "@/lib/covenant/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = (await req.json()) as CovenantRequest & { approvals?: string[] };
     const request: CovenantRequest = {

@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
 function request() {
   return new Request('http://localhost/api/ops/validate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': 'test-internal-key' },
     body: JSON.stringify({ capabilityId: 'cap-test', capabilityName: 'Test capability' }),
   });
 }
@@ -14,6 +14,10 @@ afterEach(() => {
 });
 
 describe('POST /api/ops/validate', () => {
+  beforeEach(() => {
+    process.env.BYOS_INTERNAL_API_KEY = 'test-internal-key';
+  });
+
   it('fails closed without inventing CAPPO latency when the probe cannot connect', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('connection refused'));
     vi.stubGlobal('fetch', fetchMock);

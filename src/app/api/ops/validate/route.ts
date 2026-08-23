@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireInternalApiKey } from '@/lib/covenant/internal-auth';
 
 export async function POST(request: Request) {
+  const auth = requireInternalApiKey(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const body = await request.json();
     const { capabilityId, capabilityName } = body;

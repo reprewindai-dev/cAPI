@@ -3,6 +3,7 @@ import { POST } from "./route";
 
 describe("POST /api/outly/outcome", () => {
   it("fails closed when PGL is unavailable", async () => {
+    process.env.BYOS_INTERNAL_API_KEY = "test-internal-key";
     delete process.env.PGL_LEDGER_URL;
     const response = await POST(new Request("http://localhost/api/outly/outcome", {
       method: "POST",
@@ -23,7 +24,7 @@ describe("POST /api/outly/outcome", () => {
         evidence_reference: { evidence_id: "evidence-1", entry_hash: "hash", ledger: "pgl" },
         timestamp: new Date().toISOString(),
       }),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-api-key": "test-internal-key" },
     }));
 
     expect(response.status).toBe(503);

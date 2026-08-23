@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import { getEngine } from "@/lib/covenant/engine";
 import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 import { heartbeatSchema, readJson } from "@/lib/covenant/validation";
@@ -14,6 +15,11 @@ import { heartbeatSchema, readJson } from "@/lib/covenant/validation";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const internalAuth = requireInternalApiKey(request);
+  if (!internalAuth.ok) {
+    return NextResponse.json({ error: internalAuth.error }, { status: internalAuth.status });
+  }
+
   const auth = checkRegistryAuth(request);
   if (auth.configurationError) {
     return NextResponse.json(

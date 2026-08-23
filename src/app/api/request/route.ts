@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngine, type SignedCallInput } from "@/lib/covenant/engine";
+import { requireInternalApiKey } from "@/lib/covenant/internal-auth";
 import type { CovenantRequest } from "@/lib/covenant/types";
 import { requestInputSchema, readJson } from "@/lib/covenant/validation";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const auth = requireInternalApiKey(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const parsed = await readJson(req, requestInputSchema);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 

@@ -21,6 +21,7 @@ const payload = {
 
 describe("POST /api/outly/intercept", () => {
   beforeEach(() => {
+    process.env.BYOS_INTERNAL_API_KEY = "test-internal-key";
     delete process.env.PGL_LEDGER_URL;
     delete process.env.CAPPO_BACKEND_URL;
   });
@@ -29,7 +30,7 @@ describe("POST /api/outly/intercept", () => {
     const response = await POST(new Request("http://localhost/api/outly/intercept", {
       method: "POST",
       body: JSON.stringify(payload),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-api-key": "test-internal-key" },
     }));
 
     expect(response.status).toBe(503);
