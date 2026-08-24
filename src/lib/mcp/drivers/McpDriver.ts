@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { McpServerDescriptor } from "../schema";
+import { validateOutboundTarget } from "@/lib/security/outbound-target";
 
 const LOCAL_PROCESS_ENV_ALLOWLIST = [
   "PATH",
@@ -56,7 +57,8 @@ export class McpDriver {
         env: buildLocalProcessEnv(descriptor),
       });
     } else if (descriptor.type === "remote-sse" && descriptor.serverUrl) {
-      transport = new SSEClientTransport(new URL(descriptor.serverUrl));
+      const validatedUrl = await validateOutboundTarget(descriptor.serverUrl);
+      transport = new SSEClientTransport(validatedUrl);
     } else {
       throw new Error(`Unsupported or misconfigured MCP descriptor type: ${descriptor.type}`);
     }
