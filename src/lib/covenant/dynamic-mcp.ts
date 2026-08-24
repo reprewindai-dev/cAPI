@@ -16,6 +16,7 @@ import { randomUUID } from "crypto";
 import { getEngine } from "./engine";
 import { toolRegistry, type DynamicTool } from "./tool-registry";
 import type { CapabilityIdentity } from "./types";
+import { validateOutboundTarget } from "@/lib/security/outbound-target";
 
 // ---------------------------------------------------------------------------
 // Minimal OpenAPI types we care about
@@ -96,12 +97,20 @@ export async function translateOpenApiToMcp(
   openapiUrl: string,
   baseUrl: string,
 ): Promise<DynamicTool[]> {
-  // Fetch the spec
-  const res = await fetch(openapiUrl, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec: ${res.status} ${openapiUrl}`);
+  // Validate both the specification source and the execution destination.
+  // Redirects are disabled for the spec fetch so a public allowlisted URL
+  // cannot redirect cAPI into a private or metadata address.
+  const validatedSpecUrl = await validateOutboundTarget(openapiUrl);
+  const validatedBaseUrl = await validateOutboundTarget(baseUrl);
+
+  const res = await fetch(validatedSpecUrl, {
+    headers: { Accept: "application/json" },
+    redirect: "error",
+  });
+  if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec: ${res.status}`);
   const spec = (await res.json()) as OAPISpec;
 
-  if (!spec.paths) throw new Error(`OpenAPI spec at ${openapiUrl} has no paths`);
+  if (!spec.paths) throw new Error("OpenAPI specification has no paths");
 
   const engine = getEngine();
   const tools: DynamicTool[] = [];
@@ -126,7 +135,7 @@ export async function translateOpenApiToMcp(
         inputSchema: buildInputSchema(op),
         _meta: {
           server_id: serverId,
-          base_url: baseUrl,
+          base_url: validatedBaseUrl.toString(),
           path,
           method: rawMethod.toUpperCase() as DynamicTool["_meta"]["method"],
           capability_id: capabilityId,
@@ -164,11 +173,11 @@ export async function translateOpenApiToMcp(
     }
   }
 
-  // Store in registry
+  // Store only canonicalized, policy-validated destinations in the registry.
   toolRegistry.set(serverId, tools, {
     server_id: serverId,
-    base_url: baseUrl,
-    openapi_url: openapiUrl,
+    base_url: validatedBaseUrl.toString(),
+    openapi_url: validatedSpecUrl.toString(),
     registered_at: new Date().toISOString(),
   });
 
