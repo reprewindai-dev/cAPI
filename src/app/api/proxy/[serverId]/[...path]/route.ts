@@ -59,9 +59,12 @@ async function handleProxy(
   const path = `/${pathParts.join("/")}`;
   let targetUrl: URL;
   try {
-    targetUrl = await validateOutboundTarget(
-      new URL(`${path}${req.nextUrl.search}`, server.base_url).toString(),
-    );
+    const baseUrl = new URL(server.base_url);
+    const basePath = baseUrl.pathname.replace(/\/+$/, "");
+    const requestPath = path.replace(/^\/+/, "");
+    baseUrl.pathname = `${basePath}/${requestPath}`.replace(/\/{2,}/g, "/");
+    baseUrl.search = req.nextUrl.search;
+    targetUrl = await validateOutboundTarget(baseUrl.toString());
   } catch (error) {
     if (error instanceof OutboundTargetError) {
       return NextResponse.json(
@@ -73,18 +76,19 @@ async function handleProxy(
     return NextResponse.json({ error: "Registered upstream target is unavailable" }, { status: 502 });
   }
 
-  // Forward caller-supplied upstream headers, but never leak the cAPI internal
-  // credential or reverse-proxy internals to the registered destination.
+  // Forward only headers that are explicitly safe for registered upstreams.
+  // Caller credentials, cookies, proxy credentials, internal keys, response-only
+  // headers, and hop-by-hop headers must never leave cAPI through this route.
   const forwardHeaders = new Headers();
-  const blockedHeaders = new Set([
-    "host",
-    "x-forwarded-host",
-    "x-forwarded-proto",
-    "x-api-key",
-    "x-covenant-admin-token",
+  const allowedRequestHeaders = new Set([
+    "accept",
+    "content-type",
+    "if-match",
+    "if-none-match",
+    "range",
   ]);
   for (const [key, value] of req.headers.entries()) {
-    if (blockedHeaders.has(key.toLowerCase())) continue;
+    if (!allowedRequestHeaders.has(key.toLowerCase())) continue;
     forwardHeaders.set(key, value);
   }
 
