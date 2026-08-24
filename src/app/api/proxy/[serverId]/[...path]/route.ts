@@ -8,6 +8,7 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { toolRegistry } from "@/lib/covenant/tool-registry";
+import { OutboundTargetError, validateOutboundTarget } from "@/lib/security/outbound-target";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,21 @@ async function handleProxy(
   }
 
   const path = `/${pathParts.join("/")}`;
-  const targetUrl = `${server.base_url}${path}${req.nextUrl.search}`;
+  let targetUrl: URL;
+  try {
+    targetUrl = await validateOutboundTarget(
+      new URL(`${path}${req.nextUrl.search}`, server.base_url).toString(),
+    );
+  } catch (error) {
+    if (error instanceof OutboundTargetError) {
+      return NextResponse.json(
+        { error: "Registered upstream target is not permitted", code: error.code },
+        { status: 403 },
+      );
+    }
+    console.error("Proxy target validation failed", error);
+    return NextResponse.json({ error: "Registered upstream target is unavailable" }, { status: 502 });
+  }
 
   // Forward caller-supplied upstream headers, but never leak the cAPI internal
   // credential or reverse-proxy internals to the registered destination.
@@ -91,6 +106,9 @@ async function handleProxy(
       headers: forwardHeaders,
       body: body ?? null,
       signal: controller.signal,
+      // A previously validated public target must not be allowed to redirect
+      // the proxy to a private or metadata destination.
+      redirect: "error",
     });
     clearTimeout(timer);
 
@@ -111,8 +129,9 @@ async function handleProxy(
     clearTimeout(timer);
     const message = err instanceof Error ? err.message : String(err);
     const isTimeout = message.includes("abort") || message.includes("timeout");
+    console.error("MCP proxy upstream request failed", err);
     return NextResponse.json(
-      { error: isTimeout ? "Upstream request timed out" : `Proxy error: ${message}` },
+      { error: isTimeout ? "Upstream request timed out" : "Upstream request failed" },
       { status: isTimeout ? 504 : 502 },
     );
   }
