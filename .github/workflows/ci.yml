@@ -49,3 +49,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  verify:
+    if: ${{ always() }}
+    needs: [lint, test, dependency-audit, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all cAPI CI gates
+        run: |
+          test "${{ needs.lint.result }}" = "success"
+          test "${{ needs.test.result }}" = "success"
+          test "${{ needs.dependency-audit.result }}" = "success"
+          test "${{ needs.build.result }}" = "success"
