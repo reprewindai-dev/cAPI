@@ -84,9 +84,12 @@ describe("postIntegration fail-closed authority boundary", () => {
     const timedOutRequest = postIntegration("https://cappo.example.test/authorize", {
       run_id: "run-timeout",
     });
-    await vi.advanceTimersByTimeAsync(3000);
+    const timeoutExpectation = expect(timedOutRequest).rejects.toBeInstanceOf(
+      IntegrationUnavailable,
+    );
 
-    await expect(timedOutRequest).rejects.toBeInstanceOf(IntegrationUnavailable);
+    await vi.advanceTimersByTimeAsync(3000);
+    await timeoutExpectation;
   });
 
   it("preserves explicit authority denial", async () => {
