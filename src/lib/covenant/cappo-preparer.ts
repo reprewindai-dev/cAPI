@@ -53,6 +53,31 @@ function requireConfig(name: string): string {
   return value;
 }
 
+function normalizedExecModel(
+  body: Record<string, unknown>,
+  workspaceId: string,
+  actorId: string,
+): Record<string, unknown> {
+  return {
+    prompt: typeof body.prompt === "string" ? body.prompt : "",
+    agent_id: typeof body.agent_id === "string" ? body.agent_id : null,
+    pgl_id: actorId,
+    workspace_id: workspaceId,
+    tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : "default",
+    delegation_depth: typeof body.delegation_depth === "number" ? body.delegation_depth : 0,
+    budget_approved_cents: typeof body.budget_approved_cents === "number" ? body.budget_approved_cents : 0,
+    action_cost_cents: typeof body.action_cost_cents === "number" ? body.action_cost_cents : 0,
+    scope: body.scope && typeof body.scope === "object" ? body.scope : null,
+    genome_hash: typeof body.genome_hash === "string" ? body.genome_hash : null,
+    constitution_hash: typeof body.constitution_hash === "string" ? body.constitution_hash : null,
+    plan_hash: typeof body.plan_hash === "string" ? body.plan_hash : null,
+    action: typeof body.action === "string" ? body.action : null,
+    directive: null,
+    risk_tier: typeof body.risk_tier === "string" ? body.risk_tier : null,
+    execution_mode: typeof body.execution_mode === "string" ? body.execution_mode : "live",
+  };
+}
+
 export function prepareCappoExecution(input: PrepareCappoExecutionInput): PreparedCappoExecution {
   const targetUri = requireConfig("CAPPO_EXECUTION_URL");
   const privateKey = requireConfig("COVENANT_HTTP_SIGNING_PRIVATE_KEY");
@@ -81,16 +106,18 @@ export function prepareCappoExecution(input: PrepareCappoExecutionInput): Prepar
       execution_id: input.executionId,
     },
   };
-  // A caller cannot self-declare CAPPO's decision. The kernel sets its internal
-  // ALLOW directive only after the lease-backed consequence evaluator succeeds.
   delete unsignedBody.directive;
   delete unsignedBody.security;
 
+  // CAPPO's current ExecRequest ignores the lease transport extension before
+  // constructing the semantic cAPI envelope. Mirror that typed model exactly;
+  // the full raw body (including the lease) is independently bound by RFC 9421.
+  const semanticData = normalizedExecModel(unsignedBody, input.workspaceId, input.actorId);
   const nonce = randomBytes(24).toString("base64url");
   const securityPayload = {
     actor_id: input.actorId,
     action,
-    data_hash: sha256Hex(canonicalJson(unsignedBody)),
+    data_hash: sha256Hex(canonicalJson(semanticData)),
     nonce,
   };
   const security = {
@@ -142,8 +169,6 @@ export function prepareCappoExecution(input: PrepareCappoExecutionInput): Prepar
     scope_hash: sha256Hex(canonicalJson((unsignedBody.scope as Record<string, unknown>) ?? {})),
     policy_decision_hash: sha256Hex(canonicalJson({ decision: "candidate", source: "capi-gatekeeper" })),
     candidate_act_hash: candidateActHash,
-    // CAPPO currently normalizes the canonical /v1/exec destination to this
-    // fixed digest-domain marker before the preauthorization check.
     destination_hash: "target_hash",
     rights: [action],
     issued_at: now,
