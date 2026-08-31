@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateOutboundTarget } from "./outbound-target";
+import { validateOutboundTarget, validateOutboundTargetWithAddresses } from "./outbound-target";
 
 const publicResolver = async () => ["93.184.216.34"];
 
@@ -11,6 +11,18 @@ describe("validateOutboundTarget", () => {
       resolver: publicResolver,
     });
     expect(url.hostname).toBe("api.example.com");
+  });
+
+  it("returns the exact vetted DNS answers for socket pinning", async () => {
+    const validated = await validateOutboundTargetWithAddresses("https://api.example.com/v1", {
+      production: true,
+      allowedHosts: ["api.example.com"],
+      resolver: async () => ["93.184.216.34", "93.184.216.35"],
+    });
+
+    expect(validated.url.hostname).toBe("api.example.com");
+    expect(validated.addresses).toEqual(["93.184.216.34", "93.184.216.35"]);
+    expect(Object.isFrozen(validated.addresses)).toBe(true);
   });
 
   it("fails closed in production when no host allowlist is configured", async () => {
