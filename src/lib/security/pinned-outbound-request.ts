@@ -24,6 +24,8 @@ export interface PinnedOutboundResponse {
   arrayBuffer(): ArrayBuffer;
 }
 
+type PinnedRequestOptions = RequestOptions & { servername?: string };
+
 function headerRecord(headers?: Headers | Record<string, string>): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) return Object.fromEntries(headers.entries());
@@ -54,7 +56,7 @@ export async function pinnedOutboundRequest(
   }
 
   const headers = headerRecord(options.headers);
-  const requestOptions: RequestOptions = {
+  const requestOptions: PinnedRequestOptions = {
     method: options.method ?? "GET",
     headers,
     signal: options.signal,
