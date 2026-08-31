@@ -17,6 +17,7 @@ export interface OutboundTargetOptions {
   allowedHosts?: string[];
   production?: boolean;
   resolver?: Resolver;
+  resolverTimeoutMs?: number;
 }
 
 async function defaultResolver(hostname: string): Promise<string[]> {
@@ -94,6 +95,31 @@ function isForbiddenHostname(hostname: string): boolean {
   );
 }
 
+async function resolveWithTimeout(
+  resolver: Resolver,
+  hostname: string,
+  timeoutMs: number,
+): Promise<string[]> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new OutboundTargetError("OUTBOUND_DNS_TIMEOUT");
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      resolver(hostname),
+      new Promise<string[]>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new OutboundTargetError("OUTBOUND_DNS_TIMEOUT")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function validateOutboundTarget(
   input: string,
   options: OutboundTargetOptions = {},
@@ -130,13 +156,15 @@ export async function validateOutboundTarget(
   }
 
   const resolver = options.resolver ?? defaultResolver;
+  const resolverTimeoutMs = options.resolverTimeoutMs ?? 5_000;
   let addresses: string[];
   if (isIP(hostname)) {
     addresses = [hostname];
   } else {
     try {
-      addresses = await resolver(hostname);
-    } catch {
+      addresses = await resolveWithTimeout(resolver, hostname, resolverTimeoutMs);
+    } catch (error) {
+      if (error instanceof OutboundTargetError) throw error;
       throw new OutboundTargetError("OUTBOUND_DNS_UNAVAILABLE");
     }
   }
