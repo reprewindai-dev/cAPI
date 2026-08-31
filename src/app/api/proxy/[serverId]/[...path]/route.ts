@@ -56,6 +56,9 @@ async function handleProxy(
     );
   }
 
+  const startedAt = Date.now();
+  const remainingBudgetMs = () => Math.max(0, PROXY_TIMEOUT_MS - (Date.now() - startedAt));
+
   const path = `/${pathParts.join("/")}`;
   let targetUrl: URL;
   try {
@@ -64,12 +67,18 @@ async function handleProxy(
     const requestPath = path.replace(/^\/+/, "");
     baseUrl.pathname = `${basePath}/${requestPath}`.replace(/\/{2,}/g, "/");
     baseUrl.search = req.nextUrl.search;
-    targetUrl = await validateOutboundTarget(baseUrl.toString());
+    targetUrl = await validateOutboundTarget(baseUrl.toString(), {
+      resolverTimeoutMs: remainingBudgetMs(),
+    });
   } catch (error) {
     if (error instanceof OutboundTargetError) {
+      const timedOut = error.code === "OUTBOUND_DNS_TIMEOUT";
       return NextResponse.json(
-        { error: "Registered upstream target is not permitted", code: error.code },
-        { status: 403 },
+        {
+          error: timedOut ? "Upstream request timed out" : "Registered upstream target is not permitted",
+          code: error.code,
+        },
+        { status: timedOut ? 504 : 403 },
       );
     }
     console.error("Proxy target validation failed", error);
@@ -97,8 +106,13 @@ async function handleProxy(
   forwardHeaders.set("X-Forwarded-Path", path);
   forwardHeaders.set("X-Request-Time", new Date().toISOString());
 
+  const remaining = remainingBudgetMs();
+  if (remaining <= 0) {
+    return NextResponse.json({ error: "Upstream request timed out" }, { status: 504 });
+  }
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), remaining);
 
   try {
     const body = req.method !== "GET" && req.method !== "HEAD"
