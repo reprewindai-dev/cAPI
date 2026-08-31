@@ -27,11 +27,20 @@ describe("validateOutboundTarget", () => {
     "http://10.1.2.3",
     "http://192.168.1.2",
     "http://[::1]/",
+    "http://[fec0::1]/",
   ])("rejects local or private literal address %s", async (target) => {
     await expect(validateOutboundTarget(target, {
       production: false,
       allowedHosts: [],
     })).rejects.toMatchObject({ code: "OUTBOUND_ADDRESS_FORBIDDEN" });
+  });
+
+  it("does not reject the entire public 192.0/16 range", async () => {
+    const url = await validateOutboundTarget("http://192.0.10.1/", {
+      production: false,
+      allowedHosts: [],
+    });
+    expect(url.hostname).toBe("192.0.10.1");
   });
 
   it("rejects a public-looking hostname that resolves to a private address", async () => {
