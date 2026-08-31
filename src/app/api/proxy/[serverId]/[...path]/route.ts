@@ -8,7 +8,8 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { toolRegistry } from "@/lib/covenant/tool-registry";
-import { OutboundTargetError, validateOutboundTarget } from "@/lib/security/outbound-target";
+import { OutboundTargetError } from "@/lib/security/outbound-target";
+import { pinnedOutboundRequest } from "@/lib/security/pinned-outbound-request";
 
 export const dynamic = "force-dynamic";
 
@@ -67,21 +68,9 @@ async function handleProxy(
     const requestPath = path.replace(/^\/+/, "");
     baseUrl.pathname = `${basePath}/${requestPath}`.replace(/\/{2,}/g, "/");
     baseUrl.search = req.nextUrl.search;
-    targetUrl = await validateOutboundTarget(baseUrl.toString(), {
-      resolverTimeoutMs: remainingBudgetMs(),
-    });
+    targetUrl = baseUrl;
   } catch (error) {
-    if (error instanceof OutboundTargetError) {
-      const timedOut = error.code === "OUTBOUND_DNS_TIMEOUT";
-      return NextResponse.json(
-        {
-          error: timedOut ? "Upstream request timed out" : "Registered upstream target is not permitted",
-          code: error.code,
-        },
-        { status: timedOut ? 504 : 403 },
-      );
-    }
-    console.error("Proxy target validation failed", error);
+    console.error("Proxy target URL construction failed", error);
     return NextResponse.json({ error: "Registered upstream target is unavailable" }, { status: 502 });
   }
 
@@ -119,21 +108,26 @@ async function handleProxy(
       ? await req.arrayBuffer()
       : undefined;
 
-    const upstream = await fetch(targetUrl, {
+    const upstream = await pinnedOutboundRequest(targetUrl, {
       method: req.method,
       headers: forwardHeaders,
       body: body ?? null,
       signal: controller.signal,
-      // A previously validated public target must not be allowed to redirect
-      // the proxy to a private or metadata destination.
-      redirect: "error",
+      resolverTimeoutMs: remainingBudgetMs(),
     });
     clearTimeout(timer);
 
-    const responseBody = await upstream.arrayBuffer();
+    // Node's request primitive does not follow redirects. Reject them rather
+    // than exposing Location to a caller that might automatically follow a
+    // private or metadata redirect target.
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return NextResponse.json({ error: "Upstream redirect is not permitted" }, { status: 502 });
+    }
+
+    const responseBody = upstream.arrayBuffer();
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
-      if (["transfer-encoding", "connection", "keep-alive"].includes(key.toLowerCase())) return;
+      if (["transfer-encoding", "connection", "keep-alive", "location"].includes(key.toLowerCase())) return;
       responseHeaders.set(key, value);
     });
     responseHeaders.set("X-Covenant-Proxy", "cAPI/1.0");
@@ -145,6 +139,16 @@ async function handleProxy(
     });
   } catch (err: unknown) {
     clearTimeout(timer);
+    if (err instanceof OutboundTargetError) {
+      const timedOut = err.code === "OUTBOUND_DNS_TIMEOUT";
+      return NextResponse.json(
+        {
+          error: timedOut ? "Upstream request timed out" : "Registered upstream target is not permitted",
+          code: err.code,
+        },
+        { status: timedOut ? 504 : 403 },
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     const isTimeout = message.includes("abort") || message.includes("timeout");
     console.error("MCP proxy upstream request failed", err);
