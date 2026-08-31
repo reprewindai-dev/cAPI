@@ -5,19 +5,22 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("McpDriver production transport policy", () => {
-  it("fails closed for remote-sse until every SDK network operation is policy-bound", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+describe("McpDriver remote transport policy", () => {
+  it.each(["production", "development"])(
+    "fails closed for remote-sse in %s until every SDK network operation is address-pinned",
+    async (nodeEnv) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
 
-    await expect(
-      McpDriver.connect({
-        id: "remote-sse-production",
-        displayName: "Remote SSE production probe",
-        type: "remote-sse",
-        serverUrl: "https://example.com/mcp",
-      }),
-    ).rejects.toThrow(
-      "remote-sse MCP is disabled in production until outbound policy enforcement covers every transport operation",
-    );
-  });
+      await expect(
+        McpDriver.connect({
+          id: `remote-sse-${nodeEnv}`,
+          displayName: "Remote SSE policy probe",
+          type: "remote-sse",
+          serverUrl: "https://example.com/mcp",
+        }),
+      ).rejects.toThrow(
+        "remote-sse MCP is disabled until every transport operation is bound to validated outbound addresses",
+      );
+    },
+  );
 });
