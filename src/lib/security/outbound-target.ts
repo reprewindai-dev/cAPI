@@ -58,7 +58,7 @@ export function isUnsafeOutboundAddress(address: string): boolean {
       (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 0) ||
+      (a === 192 && b === 0 && octets[2] === 0) ||
       (a === 192 && b === 168) ||
       (a === 192 && b === 0 && octets[2] === 2) ||
       (a === 198 && (b === 18 || b === 19)) ||
@@ -76,6 +76,7 @@ export function isUnsafeOutboundAddress(address: string): boolean {
       value.startsWith("fc") ||
       value.startsWith("fd") ||
       /^fe[89ab]/.test(value) ||
+      /^fe[cdef]/.test(value) ||
       value.startsWith("ff") ||
       value.startsWith("::ffff:")
     );
