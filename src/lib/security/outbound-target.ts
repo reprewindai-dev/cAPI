@@ -20,6 +20,11 @@ export interface OutboundTargetOptions {
   resolverTimeoutMs?: number;
 }
 
+export interface ValidatedOutboundTarget {
+  url: URL;
+  addresses: readonly string[];
+}
+
 async function defaultResolver(hostname: string): Promise<string[]> {
   const records = await lookup(hostname, { all: true, verbatim: true });
   return records.map((record) => record.address);
@@ -120,10 +125,10 @@ async function resolveWithTimeout(
   }
 }
 
-export async function validateOutboundTarget(
+export async function validateOutboundTargetWithAddresses(
   input: string,
   options: OutboundTargetOptions = {},
-): Promise<URL> {
+): Promise<ValidatedOutboundTarget> {
   let url: URL;
   try {
     url = new URL(input);
@@ -176,5 +181,13 @@ export async function validateOutboundTarget(
     throw new OutboundTargetError("OUTBOUND_ADDRESS_FORBIDDEN");
   }
 
-  return url;
+  return { url, addresses: Object.freeze([...addresses]) };
+}
+
+export async function validateOutboundTarget(
+  input: string,
+  options: OutboundTargetOptions = {},
+): Promise<URL> {
+  const validated = await validateOutboundTargetWithAddresses(input, options);
+  return validated.url;
 }
