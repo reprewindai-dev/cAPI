@@ -1,19 +1,13 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { McpDriver } from "./McpDriver";
 
-const originalNodeEnv = process.env.NODE_ENV;
-
 afterEach(() => {
-  if (originalNodeEnv === undefined) {
-    delete process.env.NODE_ENV;
-  } else {
-    process.env.NODE_ENV = originalNodeEnv;
-  }
+  vi.unstubAllEnvs();
 });
 
 describe("McpDriver production transport policy", () => {
   it("fails closed for remote-sse until every SDK network operation is policy-bound", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
 
     await expect(
       McpDriver.connect({
