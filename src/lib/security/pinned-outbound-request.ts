@@ -25,6 +25,7 @@ export interface PinnedOutboundResponse {
 }
 
 type PinnedRequestOptions = RequestOptions & { servername?: string };
+type Lookup = NonNullable<RequestOptions["lookup"]>;
 
 function headerRecord(headers?: Headers | Record<string, string>): Record<string, string> {
   if (!headers) return {};
@@ -44,25 +45,30 @@ function responseHeaders(input: IncomingHttpHeaders): Headers {
   return headers;
 }
 
+export function createPinnedLookup(pinnedAddress: string): Lookup {
+  const family = isIP(pinnedAddress);
+  if (family !== 4 && family !== 6) {
+    throw new OutboundTargetError("OUTBOUND_DNS_UNAVAILABLE");
+  }
+
+  return (_hostname, _lookupOptions, callback) => {
+    callback(null, pinnedAddress, family);
+  };
+}
+
 export async function pinnedOutboundRequest(
   input: string | URL,
   options: PinnedOutboundRequestOptions = {},
 ): Promise<PinnedOutboundResponse> {
   const validated = await validateOutboundTargetWithAddresses(input.toString(), options);
   const pinnedAddress = validated.addresses[0];
-  const family = isIP(pinnedAddress);
-  if (family !== 4 && family !== 6) {
-    throw new OutboundTargetError("OUTBOUND_DNS_UNAVAILABLE");
-  }
 
   const headers = headerRecord(options.headers);
   const requestOptions: PinnedRequestOptions = {
     method: options.method ?? "GET",
     headers,
     signal: options.signal,
-    lookup: (_hostname, _lookupOptions, callback) => {
-      callback(null, pinnedAddress, family);
-    },
+    lookup: createPinnedLookup(pinnedAddress),
   };
 
   // Keep the original hostname for Host and TLS SNI while the custom lookup
