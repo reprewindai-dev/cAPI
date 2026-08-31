@@ -17,6 +17,7 @@ import { getEngine } from "./engine";
 import { toolRegistry, type DynamicTool } from "./tool-registry";
 import type { CapabilityIdentity } from "./types";
 import { validateOutboundTarget } from "@/lib/security/outbound-target";
+import { pinnedOutboundRequest } from "@/lib/security/pinned-outbound-request";
 
 // ---------------------------------------------------------------------------
 // Minimal OpenAPI types we care about
@@ -97,18 +98,16 @@ export async function translateOpenApiToMcp(
   openapiUrl: string,
   baseUrl: string,
 ): Promise<DynamicTool[]> {
-  // Validate both the specification source and the execution destination.
-  // Redirects are disabled for the spec fetch so a public allowlisted URL
-  // cannot redirect cAPI into a private or metadata address.
-  const validatedSpecUrl = await validateOutboundTarget(openapiUrl);
+  // Validate the execution destination before storing it. The OpenAPI source is
+  // fetched through pinnedOutboundRequest so the socket cannot perform a second
+  // attacker-controlled DNS resolution after validation.
   const validatedBaseUrl = await validateOutboundTarget(baseUrl);
 
-  const res = await fetch(validatedSpecUrl, {
+  const res = await pinnedOutboundRequest(openapiUrl, {
     headers: { Accept: "application/json" },
-    redirect: "error",
   });
   if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec: ${res.status}`);
-  const spec = (await res.json()) as OAPISpec;
+  const spec = res.json<OAPISpec>();
 
   if (!spec.paths) throw new Error("OpenAPI specification has no paths");
 
@@ -174,6 +173,7 @@ export async function translateOpenApiToMcp(
   }
 
   // Store only canonicalized, policy-validated destinations in the registry.
+  const validatedSpecUrl = await validateOutboundTarget(openapiUrl);
   toolRegistry.set(serverId, tools, {
     server_id: serverId,
     base_url: validatedBaseUrl.toString(),
