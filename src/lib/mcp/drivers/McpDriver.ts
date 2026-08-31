@@ -1,8 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { McpServerDescriptor } from "../schema";
-import { validateOutboundTarget } from "@/lib/security/outbound-target";
 
 const LOCAL_PROCESS_ENV_ALLOWLIST = [
   "PATH",
@@ -15,13 +13,6 @@ const LOCAL_PROCESS_ENV_ALLOWLIST = [
 
 function localProcessAllowed(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.CAPI_ALLOW_LOCAL_PROCESS_MCP === "true";
-}
-
-function remoteSseAllowed(): boolean {
-  // The MCP SDK owns redirects, reconnects, and message POSTs for SSE. Until
-  // every network operation can be bound to the same validated destination
-  // policy, hosted cAPI must not expose this transport in production.
-  return process.env.NODE_ENV !== "production";
 }
 
 function buildLocalProcessEnv(descriptor: McpServerDescriptor): Record<string, string> {
@@ -64,12 +55,11 @@ export class McpDriver {
         env: buildLocalProcessEnv(descriptor),
       });
     } else if (descriptor.type === "remote-sse" && descriptor.serverUrl) {
-      if (!remoteSseAllowed()) {
-        throw new Error("remote-sse MCP is disabled in production until outbound policy enforcement covers every transport operation");
-      }
-
-      const validatedUrl = await validateOutboundTarget(descriptor.serverUrl);
-      transport = new SSEClientTransport(validatedUrl);
+      // SSEClientTransport owns initial connection, reconnect, redirect, and
+      // message-POST networking. Until every one of those operations can be
+      // forced through the validated-address pinning boundary, fail closed in
+      // every environment instead of leaving development hosts SSRF-capable.
+      throw new Error("remote-sse MCP is disabled until every transport operation is bound to validated outbound addresses");
     } else {
       throw new Error(`Unsupported or misconfigured MCP descriptor type: ${descriptor.type}`);
     }
