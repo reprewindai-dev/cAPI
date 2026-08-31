@@ -17,6 +17,13 @@ function localProcessAllowed(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.CAPI_ALLOW_LOCAL_PROCESS_MCP === "true";
 }
 
+function remoteSseAllowed(): boolean {
+  // The MCP SDK owns redirects, reconnects, and message POSTs for SSE. Until
+  // every network operation can be bound to the same validated destination
+  // policy, hosted cAPI must not expose this transport in production.
+  return process.env.NODE_ENV !== "production";
+}
+
 function buildLocalProcessEnv(descriptor: McpServerDescriptor): Record<string, string> {
   const env: Record<string, string> = {};
 
@@ -57,6 +64,10 @@ export class McpDriver {
         env: buildLocalProcessEnv(descriptor),
       });
     } else if (descriptor.type === "remote-sse" && descriptor.serverUrl) {
+      if (!remoteSseAllowed()) {
+        throw new Error("remote-sse MCP is disabled in production until outbound policy enforcement covers every transport operation");
+      }
+
       const validatedUrl = await validateOutboundTarget(descriptor.serverUrl);
       transport = new SSEClientTransport(validatedUrl);
     } else {
