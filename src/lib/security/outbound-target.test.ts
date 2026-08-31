@@ -51,6 +51,15 @@ describe("validateOutboundTarget", () => {
     })).rejects.toMatchObject({ code: "OUTBOUND_ADDRESS_FORBIDDEN" });
   });
 
+  it("fails closed when DNS resolution exceeds its deadline", async () => {
+    await expect(validateOutboundTarget("https://api.example.com", {
+      production: true,
+      allowedHosts: ["api.example.com"],
+      resolver: () => new Promise<string[]>(() => undefined),
+      resolverTimeoutMs: 5,
+    })).rejects.toMatchObject({ code: "OUTBOUND_DNS_TIMEOUT" });
+  });
+
   it("rejects non-allowlisted hosts", async () => {
     await expect(validateOutboundTarget("https://other.example.com", {
       production: true,
