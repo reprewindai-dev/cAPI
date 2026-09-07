@@ -29,11 +29,22 @@ describe('Capability Snapshot Signatures (x402 Fail-Closed)', () => {
   it('rejects tampered capability signatures', () => {
     const caps = [{ id: 'test', name: 'read' }];
     const result = generateSnapshot(caps, 'agent-123');
-    
-    // Tamper the signature
-    const tamperedSig = 'a' + result.signature.substring(1);
-    
+
+    // Flip one actual signature byte so this test can never accidentally leave
+    // the original signature unchanged because of a coincidentally equal text character.
+    const tamperedBytes = Buffer.from(result.signature, 'base64');
+    tamperedBytes[0] ^= 0x01;
+    const tamperedSig = tamperedBytes.toString('base64');
+
     const isValid = verifySnapshot(result.snapshot.hash, tamperedSig);
     expect(isValid).toBe(false);
+  });
+
+  it('rejects noncanonical Base64 encodings', () => {
+    const caps = [{ id: 'test', name: 'read' }];
+    const result = generateSnapshot(caps, 'agent-123');
+    const noncanonical = `${result.signature}\n`;
+
+    expect(verifySnapshot(result.snapshot.hash, noncanonical)).toBe(false);
   });
 });
