@@ -103,13 +103,14 @@ Next.js 14 (App Router) · TypeScript · Tailwind CSS · Framer Motion · Node `
 
 ## Deployment
 
-This project is fully ready to be deployed to a **Coolify** instance (e.g., hosted on Hetzner) using the provided `Dockerfile` or Nixpacks.
+This project is deployed using standard Docker Compose as part of the Veklom local origin.
+Do not use Coolify, Hetzner, or third-party PAAS platforms.
 
-### Deploying to Coolify
+### Local Origin Deployment
 
-1. Connect your repository to your Coolify instance.
-2. Create a new Resource in Coolify and select **Project / Application**.
-3. Choose the repository and branch.
-4. Coolify will auto-detect the configuration. Under the **Build Pack** setting, select **Docker** (it should automatically pick up the `Dockerfile` at the root).
-5. Ensure the **Port** is set to `3003`.
-6. Deploy! The `Dockerfile` uses Next.js Standalone mode for a highly optimized, lightweight Node.js production image.
+1. Ensure you have Docker and Docker Compose installed on your Windows host.
+2. Build and start the container:
+   ```bash
+   docker-compose up -d --build
+   ```
+3. The container binds to `127.0.0.1:3003` locally and is exposed via the unified `cloudflared` tunnel, never directly to `0.0.0.0`.
