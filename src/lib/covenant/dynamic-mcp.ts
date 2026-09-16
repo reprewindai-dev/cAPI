@@ -16,6 +16,8 @@ import { randomUUID } from "crypto";
 import { getEngine } from "./engine";
 import { toolRegistry, type DynamicTool } from "./tool-registry";
 import type { CapabilityIdentity } from "./types";
+import { validateOutboundTarget } from "@/lib/security/outbound-target";
+import { pinnedOutboundRequest } from "@/lib/security/pinned-outbound-request";
 
 // ---------------------------------------------------------------------------
 // Minimal OpenAPI types we care about
@@ -96,12 +98,18 @@ export async function translateOpenApiToMcp(
   openapiUrl: string,
   baseUrl: string,
 ): Promise<DynamicTool[]> {
-  // Fetch the spec
-  const res = await fetch(openapiUrl, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec: ${res.status} ${openapiUrl}`);
-  const spec = (await res.json()) as OAPISpec;
+  // Validate the execution destination before storing it. The OpenAPI source is
+  // fetched through pinnedOutboundRequest so the socket cannot perform a second
+  // attacker-controlled DNS resolution after validation.
+  const validatedBaseUrl = await validateOutboundTarget(baseUrl);
 
-  if (!spec.paths) throw new Error(`OpenAPI spec at ${openapiUrl} has no paths`);
+  const res = await pinnedOutboundRequest(openapiUrl, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec: ${res.status}`);
+  const spec = res.json<OAPISpec>();
+
+  if (!spec.paths) throw new Error("OpenAPI specification has no paths");
 
   const engine = getEngine();
   const tools: DynamicTool[] = [];
@@ -126,7 +134,7 @@ export async function translateOpenApiToMcp(
         inputSchema: buildInputSchema(op),
         _meta: {
           server_id: serverId,
-          base_url: baseUrl,
+          base_url: validatedBaseUrl.toString(),
           path,
           method: rawMethod.toUpperCase() as DynamicTool["_meta"]["method"],
           capability_id: capabilityId,
@@ -164,11 +172,12 @@ export async function translateOpenApiToMcp(
     }
   }
 
-  // Store in registry
+  // Store only canonicalized, policy-validated destinations in the registry.
+  const validatedSpecUrl = await validateOutboundTarget(openapiUrl);
   toolRegistry.set(serverId, tools, {
     server_id: serverId,
-    base_url: baseUrl,
-    openapi_url: openapiUrl,
+    base_url: validatedBaseUrl.toString(),
+    openapi_url: validatedSpecUrl.toString(),
     registered_at: new Date().toISOString(),
   });
 

@@ -8,6 +8,8 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { toolRegistry } from "@/lib/covenant/tool-registry";
+import { OutboundTargetError } from "@/lib/security/outbound-target";
+import { pinnedOutboundRequest } from "@/lib/security/pinned-outbound-request";
 
 export const dynamic = "force-dynamic";
 
@@ -55,21 +57,36 @@ async function handleProxy(
     );
   }
 
-  const path = `/${pathParts.join("/")}`;
-  const targetUrl = `${server.base_url}${path}${req.nextUrl.search}`;
+  const startedAt = Date.now();
+  const remainingBudgetMs = () => Math.max(0, PROXY_TIMEOUT_MS - (Date.now() - startedAt));
 
-  // Forward caller-supplied upstream headers, but never leak the cAPI internal
-  // credential or reverse-proxy internals to the registered destination.
+  const path = `/${pathParts.join("/")}`;
+  let targetUrl: URL;
+  try {
+    const baseUrl = new URL(server.base_url);
+    const basePath = baseUrl.pathname.replace(/\/+$/, "");
+    const requestPath = path.replace(/^\/+/, "");
+    baseUrl.pathname = `${basePath}/${requestPath}`.replace(/\/{2,}/g, "/");
+    baseUrl.search = req.nextUrl.search;
+    targetUrl = baseUrl;
+  } catch (error) {
+    console.error("Proxy target URL construction failed", error);
+    return NextResponse.json({ error: "Registered upstream target is unavailable" }, { status: 502 });
+  }
+
+  // Forward only headers that are explicitly safe for registered upstreams.
+  // Caller credentials, cookies, proxy credentials, internal keys, response-only
+  // headers, and hop-by-hop headers must never leave cAPI through this route.
   const forwardHeaders = new Headers();
-  const blockedHeaders = new Set([
-    "host",
-    "x-forwarded-host",
-    "x-forwarded-proto",
-    "x-api-key",
-    "x-covenant-admin-token",
+  const allowedRequestHeaders = new Set([
+    "accept",
+    "content-type",
+    "if-match",
+    "if-none-match",
+    "range",
   ]);
   for (const [key, value] of req.headers.entries()) {
-    if (blockedHeaders.has(key.toLowerCase())) continue;
+    if (!allowedRequestHeaders.has(key.toLowerCase())) continue;
     forwardHeaders.set(key, value);
   }
 
@@ -78,26 +95,39 @@ async function handleProxy(
   forwardHeaders.set("X-Forwarded-Path", path);
   forwardHeaders.set("X-Request-Time", new Date().toISOString());
 
+  const remaining = remainingBudgetMs();
+  if (remaining <= 0) {
+    return NextResponse.json({ error: "Upstream request timed out" }, { status: 504 });
+  }
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), remaining);
 
   try {
     const body = req.method !== "GET" && req.method !== "HEAD"
       ? await req.arrayBuffer()
       : undefined;
 
-    const upstream = await fetch(targetUrl, {
+    const upstream = await pinnedOutboundRequest(targetUrl, {
       method: req.method,
       headers: forwardHeaders,
       body: body ?? null,
       signal: controller.signal,
+      resolverTimeoutMs: remainingBudgetMs(),
     });
     clearTimeout(timer);
 
-    const responseBody = await upstream.arrayBuffer();
+    // Node's request primitive does not follow redirects. Reject them rather
+    // than exposing Location to a caller that might automatically follow a
+    // private or metadata redirect target.
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return NextResponse.json({ error: "Upstream redirect is not permitted" }, { status: 502 });
+    }
+
+    const responseBody = upstream.arrayBuffer();
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
-      if (["transfer-encoding", "connection", "keep-alive"].includes(key.toLowerCase())) return;
+      if (["transfer-encoding", "connection", "keep-alive", "location"].includes(key.toLowerCase())) return;
       responseHeaders.set(key, value);
     });
     responseHeaders.set("X-Covenant-Proxy", "cAPI/1.0");
@@ -109,10 +139,21 @@ async function handleProxy(
     });
   } catch (err: unknown) {
     clearTimeout(timer);
+    if (err instanceof OutboundTargetError) {
+      const timedOut = err.code === "OUTBOUND_DNS_TIMEOUT";
+      return NextResponse.json(
+        {
+          error: timedOut ? "Upstream request timed out" : "Registered upstream target is not permitted",
+          code: err.code,
+        },
+        { status: timedOut ? 504 : 403 },
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     const isTimeout = message.includes("abort") || message.includes("timeout");
+    console.error("MCP proxy upstream request failed", err);
     return NextResponse.json(
-      { error: isTimeout ? "Upstream request timed out" : `Proxy error: ${message}` },
+      { error: isTimeout ? "Upstream request timed out" : "Upstream request failed" },
       { status: isTimeout ? 504 : 502 },
     );
   }

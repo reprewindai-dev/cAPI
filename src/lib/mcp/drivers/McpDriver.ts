@@ -1,6 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { McpServerDescriptor } from "../schema";
 
 const LOCAL_PROCESS_ENV_ALLOWLIST = [
@@ -56,7 +55,11 @@ export class McpDriver {
         env: buildLocalProcessEnv(descriptor),
       });
     } else if (descriptor.type === "remote-sse" && descriptor.serverUrl) {
-      transport = new SSEClientTransport(new URL(descriptor.serverUrl));
+      // SSEClientTransport owns initial connection, reconnect, redirect, and
+      // message-POST networking. Until every one of those operations can be
+      // forced through the validated-address pinning boundary, fail closed in
+      // every environment instead of leaving development hosts SSRF-capable.
+      throw new Error("remote-sse MCP is disabled until every transport operation is bound to validated outbound addresses");
     } else {
       throw new Error(`Unsupported or misconfigured MCP descriptor type: ${descriptor.type}`);
     }
