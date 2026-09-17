@@ -21,7 +21,7 @@ import {
   type ServiceRegistrationInput,
 } from "./service-registry";
 import { seedFleet } from "./seed";
-import type { CovenantRequest, CovenantResponse, RegistryProofState } from "./types";
+import type { CapabilityIdentity, CovenantRequest, CovenantResponse, RegistryProofState } from "./types";
 
 export interface SignedCallInput {
   agent_id: string;
@@ -52,6 +52,8 @@ export class CovenantEngine {
   private registrySyncAt = 0;
   private registrySyncInFlight: Promise<void> | null = null;
   private registrySkipped: string[] = [];
+  /** Capabilities owned by the last successful registry reconciliation. */
+  private registryCapabilityIds = new Set<string>();
 
 
   constructor() {
@@ -125,8 +127,19 @@ export class CovenantEngine {
     authenticated: boolean,
   ): Promise<RegisterResult> {
     const result = await this.services.register(input, authenticated);
+    const servicePrefix = `svc::${result.registration.service_name}::`;
+    const expectedForService = new Set(
+      result.executableCapabilities.map((capability) => capability.capability_id),
+    );
+    for (const capabilityId of this.registryCapabilityIds) {
+      if (capabilityId.startsWith(servicePrefix) && !expectedForService.has(capabilityId)) {
+        this.runtime.capabilities.delete(capabilityId);
+        this.registryCapabilityIds.delete(capabilityId);
+      }
+    }
     for (const cap of result.executableCapabilities) {
       this.runtime.registerCapability(cap);
+      this.registryCapabilityIds.add(cap.capability_id);
     }
     this.serviceCache = await this.services.list();
     this.registryProof = {
@@ -151,6 +164,10 @@ export class CovenantEngine {
     const existing = await this.services.get(serviceName);
     if (!existing) return false;
     await this.services.delete(serviceName);
+    for (const capability of this.services.getExecutableCapabilities(existing)) {
+      this.runtime.capabilities.delete(capability.capability_id);
+      this.registryCapabilityIds.delete(capability.capability_id);
+    }
     this.serviceCache = await this.services.list();
     return true;
   }
@@ -177,44 +194,48 @@ export class CovenantEngine {
     if (this.registrySyncInFlight) return this.registrySyncInFlight;
 
     this.registrySyncInFlight = (async () => {
-      const expectedCaps = new Map<string, CapabilityIdentity>();
+      try {
+        const expectedCaps = new Map<string, CapabilityIdentity>();
 
-      // 1. Restore self-registered downstream services (e.g. lockerphycer) from Redis/Storage
-      const activeServices = await this.services.list();
-      this.serviceCache = activeServices;
-      for (const svc of activeServices) {
-        if (this.services.isStale(svc)) continue;
-        for (const cap of this.services.getExecutableCapabilities(svc)) {
+        // Gather the complete desired state before mutating runtime authority.
+        const activeServices = await this.services.list();
+        for (const svc of activeServices) {
+          if (this.services.isStale(svc)) continue;
+          for (const cap of this.services.getExecutableCapabilities(svc)) {
+            expectedCaps.set(cap.capability_id, cap);
+          }
+        }
+
+        const result = await loadConfiguredRegistry();
+        for (const cap of result.document?.capabilities ?? []) {
           expectedCaps.set(cap.capability_id, cap);
         }
-      }
 
-      // 2. Load configured BYOS pull-registry
-      const result = await loadConfiguredRegistry();
-      const nothingConfigured = result.proof.source === "none";
-      if (!(nothingConfigured && this.serviceCache.length > 0)) {
-        this.registryProof = result.proof;
-        this.registrySkipped = result.skipped;
-      }
-      this.registrySyncAt = Date.now();
-      
-      if (result.document) {
-        this.registerDocument(result.document);
-        for (const cap of result.document.capabilities || []) {
-          expectedCaps.set(cap.capability_id, cap);
+        // Remove only authority owned by a previous registry snapshot. Runtime
+        // capabilities mounted by MCP, the API, or another subsystem are not ours.
+        for (const existingId of this.registryCapabilityIds) {
+          if (!expectedCaps.has(existingId)) this.runtime.capabilities.delete(existingId);
         }
-      }
+        for (const cap of expectedCaps.values()) this.runtime.registerCapability(cap);
+        this.registryCapabilityIds = new Set(expectedCaps.keys());
 
-      // 3. Reconciliation Sweep: Garbage collect stale capabilities
-      for (const existingId of this.runtime.capabilities.keys()) {
-        if (!expectedCaps.has(existingId)) {
-          this.runtime.capabilities.delete(existingId);
+        this.serviceCache = activeServices;
+        const nothingConfigured = result.proof.source === "none";
+        if (!(nothingConfigured && this.serviceCache.length > 0)) {
+          this.registryProof = result.proof;
+          this.registrySkipped = result.skipped;
         }
-      }
-
-      // 4. Update Runtime Graph
-      for (const cap of expectedCaps.values()) {
-        this.runtime.registerCapability(cap);
+        if (result.document) this.registerDocument(result.document);
+        this.registrySyncAt = Date.now();
+      } catch (error) {
+        // When the authoritative source cannot be read, previously hydrated
+        // registry authority is no longer demonstrably current. Fail closed.
+        for (const capabilityId of this.registryCapabilityIds) {
+          this.runtime.capabilities.delete(capabilityId);
+        }
+        this.registryCapabilityIds.clear();
+        this.registrySyncAt = 0;
+        throw error;
       }
     })().finally(() => {
       this.registrySyncInFlight = null;

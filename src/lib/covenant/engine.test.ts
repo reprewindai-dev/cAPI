@@ -1,7 +1,28 @@
-﻿import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { CovenantEngine } from "./engine";
 import { ServiceRegistry, InMemoryRegistryStore } from "./service-registry";
 import { type CapabilityIdentity } from "./types";
+
+const capability = (capability_id: string, endpoint = "local://test"): CapabilityIdentity => ({
+  capability_id,
+  capability_name: capability_id,
+  description: "test capability",
+  provider_id: "test-provider",
+  endpoint,
+  input_schema: { type: "object" },
+  output_schema: { type: "object" },
+  public_key: "",
+  created_at: new Date(0).toISOString(),
+  version: "1.0",
+  identity_proof: "test-only",
+  metadata: {
+    category: "tool",
+    requires_approval: false,
+    cost: "free",
+    rate_limit: 60,
+    tags: ["test"],
+  },
+});
 
 describe("CovenantEngine Hydration & Reconciliation", () => {
   it("persistent capability survives restart", async () => {
@@ -130,23 +151,11 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     }, true);
     await engine.syncRegistry(true);
     
-    // Force a failure in the store list method
-    const originalList = store.list.bind(store);
-    store.list = async () => { throw new Error("Connection lost"); };
-    
-    try {
-      await engine.syncRegistry(true);
-    } catch (e) {
-      // Ignored for test
-    }
-    
-    // A failed hydration shouldn't corrupt the runtime, but wait, the prompt says:
-    // 'failed/partial hydration cannot silently retain unauthorized stale authority'
-    // If the hydration fails, does the engine mark itself degraded?
-    // Let's just ensure if it succeeds with an empty set, it clears.
-    // Let's restore and return empty
-    store.list = async () => { return []; };
-    await engine.syncRegistry(true);
+    store.list = async () => {
+      throw new Error("Connection lost");
+    };
+
+    await expect(engine.syncRegistry(true)).rejects.toThrow("Connection lost");
     expect(engine.runtime.capabilities.has("svc::test-svc::cap1")).toBe(false);
   });
 
@@ -170,5 +179,40 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     (engine as any).services = services;
     await engine.syncRegistry(true);
     expect(engine.runtime.capabilities.has("svc::test-svc::cap1")).toBe(false);
+  });
+
+  it("preserves capabilities owned by non-registry runtime paths", async () => {
+    const store = new InMemoryRegistryStore();
+    const engine = new CovenantEngine();
+    (engine as any).services = new ServiceRegistry(store);
+    engine.runtime.registerCapability(capability("manual::mounted"));
+
+    await engine.syncRegistry(true);
+
+    expect(engine.runtime.capabilities.has("manual::mounted")).toBe(true);
+  });
+
+  it("fails closed for registry-owned authority without deleting unrelated capabilities", async () => {
+    const store = new InMemoryRegistryStore();
+    const services = new ServiceRegistry(store);
+    const engine = new CovenantEngine();
+    (engine as any).services = services;
+    engine.runtime.registerCapability(capability("manual::mounted"));
+
+    await services.register({
+      service_name: "test-svc",
+      base_url: "http://test",
+      capabilities: [{ name: "cap1", endpoint: "http://test/cap1" }],
+    }, true);
+    await engine.syncRegistry(true);
+    expect(engine.runtime.capabilities.has("svc::test-svc::cap1")).toBe(true);
+
+    store.list = async () => {
+      throw new Error("registry unavailable");
+    };
+
+    await expect(engine.syncRegistry(true)).rejects.toThrow("registry unavailable");
+    expect(engine.runtime.capabilities.has("svc::test-svc::cap1")).toBe(false);
+    expect(engine.runtime.capabilities.has("manual::mounted")).toBe(true);
   });
 });
