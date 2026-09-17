@@ -177,15 +177,45 @@ export class CovenantEngine {
     if (this.registrySyncInFlight) return this.registrySyncInFlight;
 
     this.registrySyncInFlight = (async () => {
+      const expectedCaps = new Map<string, CapabilityIdentity>();
+
+      // 1. Restore self-registered downstream services (e.g. lockerphycer) from Redis/Storage
+      const activeServices = await this.services.list();
+      this.serviceCache = activeServices;
+      for (const svc of activeServices) {
+        if (this.services.isStale(svc)) continue;
+        for (const cap of this.services.getExecutableCapabilities(svc)) {
+          expectedCaps.set(cap.capability_id, cap);
+        }
+      }
+
+      // 2. Load configured BYOS pull-registry
       const result = await loadConfiguredRegistry();
-      // An unconfigured pull-registry must not erase live self-registration state.
       const nothingConfigured = result.proof.source === "none";
       if (!(nothingConfigured && this.serviceCache.length > 0)) {
         this.registryProof = result.proof;
         this.registrySkipped = result.skipped;
       }
       this.registrySyncAt = Date.now();
-      if (result.document) this.registerDocument(result.document);
+      
+      if (result.document) {
+        this.registerDocument(result.document);
+        for (const cap of result.document.capabilities || []) {
+          expectedCaps.set(cap.capability_id, cap);
+        }
+      }
+
+      // 3. Reconciliation Sweep: Garbage collect stale capabilities
+      for (const existingId of this.runtime.capabilities.keys()) {
+        if (!expectedCaps.has(existingId)) {
+          this.runtime.capabilities.delete(existingId);
+        }
+      }
+
+      // 4. Update Runtime Graph
+      for (const cap of expectedCaps.values()) {
+        this.runtime.registerCapability(cap);
+      }
     })().finally(() => {
       this.registrySyncInFlight = null;
     });

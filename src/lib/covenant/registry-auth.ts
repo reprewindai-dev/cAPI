@@ -12,7 +12,7 @@ const UNAUTHENTICATED_REGISTRY_ENVIRONMENTS = new Set(["local", "development", "
  * only when no registry token is configured; all other environments fail closed.
  */
 export function checkRegistryAuth(request: Request): RegistryAuthCheck {
-  const expected = process.env.CAPI_REGISTRY_TOKEN?.trim();
+  const expected = (process.env.COVENANT_REGISTRY_API_KEY || process.env.CAPI_REGISTRY_TOKEN)?.trim();
   const header = request.headers.get("authorization")?.trim() ?? "";
   const presented = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
