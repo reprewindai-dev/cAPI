@@ -232,7 +232,17 @@ export class ServiceRegistry {
     return { registration, executableCapabilities, declaredOnly };
   }
 
-  private toCapabilityIdentity(
+  public getExecutableCapabilities(registration: ServiceRegistration): CapabilityIdentity[] {
+    const executableCapabilities: CapabilityIdentity[] = [];
+    for (const cap of registration.capabilities ?? []) {
+      if (isExecutableEndpoint(cap.endpoint)) {
+        executableCapabilities.push(this.toCapabilityIdentity(registration, cap, cap.endpoint));
+      }
+    }
+    return executableCapabilities;
+  }
+
+  public toCapabilityIdentity(
     registration: ServiceRegistration,
     cap: RegisteredCapability,
     endpoint: string,

@@ -177,15 +177,56 @@ export class CovenantEngine {
     if (this.registrySyncInFlight) return this.registrySyncInFlight;
 
     this.registrySyncInFlight = (async () => {
-      const result = await loadConfiguredRegistry();
-      // An unconfigured pull-registry must not erase live self-registration state.
-      const nothingConfigured = result.proof.source === "none";
-      if (!(nothingConfigured && this.serviceCache.length > 0)) {
-        this.registryProof = result.proof;
-        this.registrySkipped = result.skipped;
+      const expectedCaps = new Map<string, CapabilityIdentity>();
+
+      try {
+        // 1. Restore self-registered downstream services (e.g. lockerphycer) from Redis/Storage
+        const activeServices = await this.services.list();
+        this.serviceCache = activeServices;
+        for (const svc of activeServices) {
+          if (this.services.isStale(svc)) continue;
+          for (const cap of this.services.getExecutableCapabilities(svc)) {
+            expectedCaps.set(cap.capability_id, cap);
+          }
+        }
+
+        // 2. Load configured BYOS pull-registry
+        const result = await loadConfiguredRegistry();
+        const nothingConfigured = result.proof.source === "none";
+        if (!(nothingConfigured && this.serviceCache.length > 0)) {
+          this.registryProof = result.proof;
+          this.registrySkipped = result.skipped;
+        }
+        this.registrySyncAt = Date.now();
+        
+        if (result.document) {
+          this.registerDocument(result.document);
+          for (const cap of result.document.capabilities || []) {
+            expectedCaps.set(cap.capability_id, cap);
+          }
+        }
+      } catch (e) {
+        // Fail-closed: If we cannot verify authority, we must revoke previously synced registry capabilities.
+        for (const managedId of this.registryManagedCapabilities) {
+          this.runtime.capabilities.delete(managedId);
+        }
+        this.registryManagedCapabilities.clear();
+        throw e;
       }
-      this.registrySyncAt = Date.now();
-      if (result.document) this.registerDocument(result.document);
+
+      // 3. Reconciliation Sweep: Garbage collect ONLY stale registry-managed capabilities
+      for (const managedId of this.registryManagedCapabilities) {
+        if (!expectedCaps.has(managedId)) {
+          this.runtime.capabilities.delete(managedId);
+        }
+      }
+
+      // 4. Update Runtime Graph and Managed Set
+      this.registryManagedCapabilities.clear();
+      for (const cap of expectedCaps.values()) {
+        this.runtime.registerCapability(cap);
+        this.registryManagedCapabilities.add(cap.capability_id);
+      }
     })().finally(() => {
       this.registrySyncInFlight = null;
     });
