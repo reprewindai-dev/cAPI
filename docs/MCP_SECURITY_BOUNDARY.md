@@ -34,6 +34,10 @@ Hosted cAPI should use remote MCP transports for actual service connections. Dis
 
 The direct proxy is a transport helper, not an authority boundary. Because a direct call does not itself prove that CAPPO authorized the consequence, it is restricted to authenticated internal traffic and must not become a public alternate execution API.
 
+## rc1 Interlink bridge
+
+The rc1 Interlink bridge forwards only Discovery/Mount traffic to CAPPO: `GET /api/v1/capi/interlink/capability/packages`, `POST /api/v1/capi/interlink/capability/mounts`, `GET /api/v1/capi/interlink/capability/mounts/{id}`, and `POST /api/v1/capi/interlink/capability/mounts/{id}/actions`. Execute and terminate are never bridged; consequence authority remains exclusively on CAPPO.
+
 ## Required deployment verification
 
 After any deployment affecting these paths, verify at minimum:
