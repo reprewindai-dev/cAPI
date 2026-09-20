@@ -1,0 +1,115 @@
+import { NextResponse } from "next/server";
+import {
+  IntegrationUnavailable,
+  requireIntegration,
+} from "@/lib/covenant/integrations";
+
+export const dynamic = "force-dynamic";
+
+type RouteContext = {
+  params: Promise<{ path: string[] }>;
+};
+
+function errorResponse(error: string, status: number): NextResponse {
+  return NextResponse.json({ error }, { status });
+}
+
+function upstreamPath(path: string[]): string | null {
+  if (path.length === 1 && path[0] === "packages") {
+    return "/v1/capability/packages";
+  }
+  if (path.length === 1 && path[0] === "mounts") {
+    return "/v1/capability/mounts";
+  }
+  if (path.length === 2 && path[0] === "mounts" && path[1]) {
+    return `/v1/capability/mounts/${encodeURIComponent(path[1])}`;
+  }
+  if (
+    path.length === 3 &&
+    path[0] === "mounts" &&
+    path[1] &&
+    path[2] === "actions"
+  ) {
+    return `/v1/capability/mounts/${encodeURIComponent(path[1])}/actions`;
+  }
+  return null;
+}
+
+async function forward(
+  request: Request,
+  context: RouteContext,
+  method: "GET" | "POST",
+): Promise<Response> {
+  const path = (await context.params).path;
+  const targetPath = upstreamPath(path);
+  if (
+    targetPath === null ||
+    (method === "GET" &&
+      !(path.length === 1 && path[0] === "packages") &&
+      !(path.length === 2 && path[0] === "mounts" && path[1])) ||
+    (method === "POST" &&
+      !(
+        (path.length === 1 && path[0] === "mounts") ||
+        (path.length === 3 && path[0] === "mounts" && path[1] && path[2] === "actions")
+      ))
+  ) {
+    return errorResponse("INTERLINK_PATH_NOT_BRIDGED", 404);
+  }
+
+  let base: string;
+  try {
+    base = requireIntegration("CAPPO", process.env.CAPPO_BACKEND_URL);
+  } catch (error) {
+    if (error instanceof IntegrationUnavailable) {
+      return errorResponse("CAPPO_UNAVAILABLE", 503);
+    }
+    throw error;
+  }
+
+  const headers = new Headers();
+  const authorization = request.headers.get("authorization");
+  const contentType = request.headers.get("content-type");
+  if (authorization !== null) headers.set("authorization", authorization);
+  if (contentType !== null) headers.set("content-type", contentType);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  try {
+    const upstream = await fetch(
+      `${base}${targetPath}${method === "GET" ? new URL(request.url).search : ""}`,
+      {
+        method,
+        headers,
+        body: method === "POST" ? await request.arrayBuffer() : undefined,
+        signal: controller.signal,
+      },
+    );
+    const responseHeaders = new Headers({
+      "x-veklom-interlink": "capi",
+      "cache-control": "no-store",
+    });
+    const upstreamContentType = upstream.headers.get("content-type");
+    if (upstreamContentType !== null) {
+      responseHeaders.set("content-type", upstreamContentType);
+    }
+    return new Response(await upstream.arrayBuffer(), {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return errorResponse("CAPPO_UNREACHABLE", 504);
+    }
+    return errorResponse("CAPPO_UNAVAILABLE", 503);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function GET(request: Request, context: RouteContext): Promise<Response> {
+  return forward(request, context, "GET");
+}
+
+export async function POST(request: Request, context: RouteContext): Promise<Response> {
+  return forward(request, context, "POST");
+}
