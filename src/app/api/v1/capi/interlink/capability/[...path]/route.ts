@@ -14,7 +14,7 @@ function errorResponse(error: string, status: number): NextResponse {
   return NextResponse.json({ error }, { status });
 }
 
-function upstreamPath(path: string[]): string | null {
+function upstreamPath(path: string[], isHolder: boolean): string | null {
   if (path.length === 1 && path[0] === "packages") {
     return "/v1/capability/packages";
   }
@@ -32,6 +32,24 @@ function upstreamPath(path: string[]): string | null {
   ) {
     return `/v1/capability/mounts/${encodeURIComponent(path[1])}/actions`;
   }
+  if (
+    isHolder &&
+    path.length === 3 &&
+    path[0] === "mounts" &&
+    path[1] &&
+    (path[2] === "execute" || path[2] === "terminate")
+  ) {
+    return `/v1/capability/mounts/${encodeURIComponent(path[1])}/${path[2]}`;
+  }
+  if (
+    isHolder &&
+    path.length === 3 &&
+    path[0] === "targets" &&
+    path[1] &&
+    path[2] === "state"
+  ) {
+    return `/v1/capability/targets/${encodeURIComponent(path[1])}/state`;
+  }
   return null;
 }
 
@@ -41,16 +59,27 @@ async function forward(
   method: "GET" | "POST",
 ): Promise<Response> {
   const path = (await context.params).path;
-  const targetPath = upstreamPath(path);
+  const isHolder = /^Bearer\s+vlm_/i.test(request.headers.get("authorization") ?? "");
+  const targetPath = upstreamPath(path, isHolder);
   if (
     targetPath === null ||
     (method === "GET" &&
       !(path.length === 1 && path[0] === "packages") &&
-      !(path.length === 2 && path[0] === "mounts" && path[1])) ||
+      !(path.length === 2 && path[0] === "mounts" && path[1]) &&
+      !(isHolder &&
+        path.length === 3 &&
+        path[0] === "targets" &&
+        path[1] &&
+        path[2] === "state")) ||
     (method === "POST" &&
       !(
         (path.length === 1 && path[0] === "mounts") ||
-        (path.length === 3 && path[0] === "mounts" && path[1] && path[2] === "actions")
+        (path.length === 3 && path[0] === "mounts" && path[1] && path[2] === "actions") ||
+        (isHolder &&
+          path.length === 3 &&
+          path[0] === "mounts" &&
+          path[1] &&
+          (path[2] === "execute" || path[2] === "terminate"))
       ))
   ) {
     return errorResponse("INTERLINK_PATH_NOT_BRIDGED", 404);
@@ -73,7 +102,14 @@ async function forward(
   if (contentType !== null) headers.set("content-type", contentType);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  const timeoutMs =
+    isHolder &&
+    path.length === 3 &&
+    path[0] === "mounts" &&
+    (path[2] === "execute" || path[2] === "terminate")
+      ? 10000
+      : 3000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const upstream = await fetch(
       `${base}${targetPath}${method === "GET" ? new URL(request.url).search : ""}`,
@@ -88,6 +124,9 @@ async function forward(
       "x-veklom-interlink": "capi",
       "cache-control": "no-store",
     });
+    if (isHolder) {
+      responseHeaders.set("x-veklom-interlink-principal", "mount-holder");
+    }
     const upstreamContentType = upstream.headers.get("content-type");
     if (upstreamContentType !== null) {
       responseHeaders.set("content-type", upstreamContentType);

@@ -104,6 +104,122 @@ describe("cAPI Interlink capability bridge", () => {
     },
   );
 
+  it("does not bridge target-state readback for non-holders", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/v1/capi/interlink/capability/targets/activation.governed-counter/state?resource=counter&mount_id=mount-1",
+      ),
+      context("targets", "activation.governed-counter", "state"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "INTERLINK_PATH_NOT_BRIDGED" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards holder execute with the extended timeout", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"decision":"allow"}', { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const authorization = "Bearer vlm_mount-1.secret";
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/capi/interlink/capability/mounts/mount-1/execute", {
+        method: "POST",
+        headers: { authorization },
+      }),
+      context("mounts", "mount-1", "execute"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-veklom-interlink-principal")).toBe("mount-holder");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cappo.test/v1/capability/mounts/mount-1/execute",
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect((options.headers as Headers).get("authorization")).toBe(authorization);
+    expect((options.headers as Headers).get("x-api-key")).toBeNull();
+  });
+
+  it("forwards holder terminate with the extended timeout", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"decision":"allow"}', { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const authorization = "Bearer vlm_mount-1.secret";
+
+    const response = await POST(
+      new Request("http://localhost/api/v1/capi/interlink/capability/mounts/mount-1/terminate", {
+        method: "POST",
+        headers: { authorization },
+      }),
+      context("mounts", "mount-1", "terminate"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-veklom-interlink-principal")).toBe("mount-holder");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cappo.test/v1/capability/mounts/mount-1/terminate",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect((options.headers as Headers).get("authorization")).toBe(authorization);
+  });
+
+  it("forwards holder target-state readback with its query string", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('{"state":{"value":1}}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const authorization = "Bearer vlm_mount-1.secret";
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/v1/capi/interlink/capability/targets/activation.governed-counter/state?resource=counter&mount_id=mount-1",
+        { headers: { authorization } },
+      ),
+      context("targets", "activation.governed-counter", "state"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-veklom-interlink-principal")).toBe("mount-holder");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cappo.test/v1/capability/targets/activation.governed-counter/state?resource=counter&mount_id=mount-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect((options.headers as Headers).get("authorization")).toBe(authorization);
+  });
+
+  it("continues forwarding holder package discovery", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const authorization = "Bearer vlm_mount-1.secret";
+
+    const response = await GET(
+      new Request("http://localhost/api/v1/capi/interlink/capability/packages", {
+        headers: { authorization },
+      }),
+      context("packages"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-veklom-interlink-principal")).toBe("mount-holder");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cappo.test/v1/capability/packages",
+      expect.objectContaining({ method: "GET" }),
+    );
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect((options.headers as Headers).get("authorization")).toBe(authorization);
+  });
+
   it("fails closed when CAPPO is not configured", async () => {
     delete process.env.CAPPO_BACKEND_URL;
 
