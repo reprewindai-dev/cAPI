@@ -102,13 +102,16 @@ async function forward(
   if (contentType !== null) headers.set("content-type", contentType);
 
   const controller = new AbortController();
-  const timeoutMs =
-    isHolder &&
-    path.length === 3 &&
+  // Mount creation, execute and terminate each anchor synchronously to PGL
+  // (CAPPO waits up to PGL_LEDGER_TIMEOUT_MS, 8 s by default). A shorter bridge
+  // timeout returned 504 while CAPPO had already created the mount, leaving an
+  // orphan with a live token. Reads keep the short timeout.
+  const anchorsSynchronously =
     path[0] === "mounts" &&
-    (path[2] === "execute" || path[2] === "terminate")
-      ? 10000
-      : 3000;
+    request.method === "POST" &&
+    (path.length === 1 ||
+      (path.length === 3 && (path[2] === "execute" || path[2] === "terminate")));
+  const timeoutMs = anchorsSynchronously ? 10000 : 3000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const upstream = await fetch(
