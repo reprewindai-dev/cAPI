@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "crypto";
+
 export type RegistryAuthCheck = {
   ok: boolean;
   authenticated: boolean;
@@ -5,6 +7,13 @@ export type RegistryAuthCheck = {
 };
 
 const UNAUTHENTICATED_REGISTRY_ENVIRONMENTS = new Set(["local", "development", "test"]);
+
+/** Constant-time comparison; a length mismatch is a mismatch, never a throw. */
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
 
 /**
  * Apply the registry's one authentication policy to every mutating registry route.
@@ -26,7 +35,7 @@ export function checkRegistryAuth(request: Request): RegistryAuthCheck {
     return { ok: true, authenticated: false, configurationError: false };
   }
 
-  if (presented && presented === expected) {
+  if (presented && safeEqual(presented, expected)) {
     return { ok: true, authenticated: true, configurationError: false };
   }
 
