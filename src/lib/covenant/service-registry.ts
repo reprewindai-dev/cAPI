@@ -164,12 +164,12 @@ export function createRegistryStore(): RegistryStore {
   if (redisUrl) return new RedisRegistryStore(redisUrl);
   
   if (process.env.NODE_ENV === 'production') {
-    throw new Error("CRITICAL STARTUP ERROR: REDIS_URL is not configured. REDIS_URL must be set to the shared Redis container: redis://v8vf3lw73fx9lw9xmbq1tvo5:6379");
+    throw new Error("CRITICAL STARTUP ERROR: REDIS_URL is not configured. Set REDIS_URL to the shared Redis instance for this deployment.");
   }
-  
+
   console.error("CRITICAL STARTUP ERROR: REDIS_URL is not configured.");
   console.error("The service registry is ephemeral without Redis. All registered services will be LOST on every restart.");
-  console.error("REDIS_URL must be set to the shared Redis container: redis://v8vf3lw73fx9lw9xmbq1tvo5:6379");
+  console.error("Set REDIS_URL to the shared Redis instance for this deployment.");
   console.warn("[registry] Falling back to in-memory registry store");
   return new InMemoryRegistryStore();
 }
