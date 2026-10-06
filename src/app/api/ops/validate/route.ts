@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireAdminToken } from '@/lib/covenant/admin-auth';
 
+// Operator probe: it anchors a validation signature in PGL with cAPI's own
+// key, so only a caller holding the Covenant admin token may trigger it.
 export async function POST(request: Request) {
+  const auth = requireAdminToken(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   try {
     const body = await request.json();
     const { capabilityId, capabilityName } = body;
