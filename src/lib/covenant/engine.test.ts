@@ -40,7 +40,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     // Engine "restarts", but is wired to the same persistent store
     const engine = new CovenantEngine();
     // We override the services for testing purposes
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
     
     // Sync to hydrate
     await engine.syncRegistry(true);
@@ -52,7 +52,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
 
     // 1. Service has cap1
     await services.register({
@@ -78,7 +78,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
 
     // Register v1
     await services.register({
@@ -103,7 +103,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
 
     await services.register({
       service_name: "test-svc",
@@ -122,7 +122,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
 
     await services.register({
       service_name: "test-svc",
@@ -142,7 +142,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
 
     await services.register({
       service_name: "test-svc",
@@ -176,7 +176,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     }, true);
 
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
     await engine.syncRegistry(true);
     expect(engine.runtime.capabilities.has("svc::test-svc::cap1")).toBe(false);
   });
@@ -184,7 +184,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
   it("preserves capabilities owned by non-registry runtime paths", async () => {
     const store = new InMemoryRegistryStore();
     const engine = new CovenantEngine();
-    (engine as any).services = new ServiceRegistry(store);
+    (engine as unknown as { services: ServiceRegistry }).services = new ServiceRegistry(store);
     engine.runtime.registerCapability(capability("manual::mounted"));
 
     await engine.syncRegistry(true);
@@ -196,7 +196,7 @@ describe("CovenantEngine Hydration & Reconciliation", () => {
     const store = new InMemoryRegistryStore();
     const services = new ServiceRegistry(store);
     const engine = new CovenantEngine();
-    (engine as any).services = services;
+    (engine as unknown as { services: ServiceRegistry }).services = services;
     engine.runtime.registerCapability(capability("manual::mounted"));
 
     await services.register({
