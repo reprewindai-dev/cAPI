@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Play, Zap, ShieldOff, Beaker } from "lucide-react";
+import { Play, Beaker } from "lucide-react";
 import { useLive } from "@/components/useLive";
 import { Pipeline } from "@/components/Pipeline";
 import { Eyebrow, LiveDot, Panel, Verdict, KeyVal } from "@/components/ui";
-import { cx, postJSON, refreshLive, short } from "@/components/util";
+import { cx, short } from "@/components/util";
 import type { CovenantResponse } from "@/lib/covenant/types";
 
 interface Preset {
@@ -16,7 +16,6 @@ interface Preset {
   action: string;
   input: string;
   approvals?: string;
-  tamper?: boolean;
 }
 
 const PRESETS: Preset[] = [
@@ -25,8 +24,16 @@ const PRESETS: Preset[] = [
   { label: "Payment · approved", desc: "CFO signs off", agent: "agent-ledger", cap: "cap-payment", action: "issue", input: '{ "amount": 240, "to": "vendor-9" }', approvals: "human:cfo" },
   { label: "Policy denial", desc: "no grant for this agent", agent: "agent-echo", cap: "cap-db-write", action: "update", input: '{ "id": 7 }' },
   { label: "System-denied purge", desc: "immutable guardrail", agent: "agent-atlas", cap: "cap-purge", action: "purge", input: "{}" },
-  { label: "Tampered signature", desc: "Phase 1 rejects", agent: "agent-scout", cap: "cap-search", action: "query", input: '{ "q": "x" }', tamper: true },
 ];
+
+/**
+ * Execution no longer leaves this page. The legacy cAPI execution proxy is
+ * retired (410) and cAPI accepts no caller-supplied approvals, tamper or
+ * bypass controls; consequence-bearing calls run through CAPPO's /v1/exec via
+ * the Interlink bridge. The builder stays as a reference for the call shape.
+ */
+const EXECUTION_MOVED =
+  "Execution moved to CAPPO via the Interlink bridge. This console no longer submits covenants; use the governed /v1/exec boundary.";
 
 export default function ConsolePage() {
   const { data } = useLive();
@@ -35,12 +42,9 @@ export default function ConsolePage() {
   const [action, setAction] = useState("select");
   const [input, setInput] = useState('{ "table": "customers", "limit": 10 }');
   const [approvals, setApprovals] = useState("");
-  const [tamper, setTamper] = useState(false);
-  const [bypass, setBypass] = useState({ policy: false, safety: false, cost: false });
-  const [resp, setResp] = useState<CovenantResponse | null>(null);
-  const [runId, setRunId] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  // Read-only: nothing on this page produces a response any more.
+  const [resp] = useState<CovenantResponse | null>(null);
+  const [runId] = useState(0);
 
   const agents = useMemo(() => data?.agents ?? [], [data]);
   const caps = useMemo(() => data?.capabilities ?? [], [data]);
@@ -62,43 +66,6 @@ export default function ConsolePage() {
     setAction(p.action);
     setInput(p.input);
     setApprovals(p.approvals ?? "");
-    setTamper(Boolean(p.tamper));
-    setBypass({ policy: false, safety: false, cost: false });
-  };
-
-  const fire = async () => {
-    setBusy(true);
-    setErr(null);
-    let parsed: Record<string, unknown> = {};
-    try {
-      parsed = input.trim() ? (JSON.parse(input) as Record<string, unknown>) : {};
-    } catch {
-      setErr("Input is not valid JSON");
-      setBusy(false);
-      return;
-    }
-    try {
-      const r = await postJSON<CovenantResponse>("/api/capi/v1/execute", {
-        connection_id: crypto.randomUUID(),
-        agent_id: agent,
-        capability_id: cap,
-        action,
-        input: parsed,
-        approvals: approvals
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        tamper,
-        bypass,
-      });
-      setResp(r);
-      setRunId((n) => n + 1);
-      refreshLive();
-    } catch {
-      setErr("Request failed");
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -188,29 +155,21 @@ export default function ConsolePage() {
               />
             </Field>
 
-            <div className="rounded-lg border hairline bg-ink-900/40 p-3">
-              <div className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-mute">
-                <ShieldOff size={11} /> overrides — see a gate&apos;s effect
-              </div>
-              <div className="space-y-1.5">
-                <Switch label="Tamper signature" on={tamper} onClick={() => setTamper((v) => !v)} danger />
-                <Switch label="Bypass policy" on={bypass.policy} onClick={() => setBypass((b) => ({ ...b, policy: !b.policy }))} />
-                <Switch label="Bypass safety" on={bypass.safety} onClick={() => setBypass((b) => ({ ...b, safety: !b.safety }))} />
-                <Switch label="Bypass cost" on={bypass.cost} onClick={() => setBypass((b) => ({ ...b, cost: !b.cost }))} />
-              </div>
+            <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 font-mono text-[11px] text-amber-200">
+              {EXECUTION_MOVED}
             </div>
 
-            {err && <div className="font-mono text-[11px] text-rose-300">{err}</div>}
-
             <button
-              onClick={fire}
-              disabled={busy}
+              type="button"
+              disabled
+              aria-disabled="true"
+              title={EXECUTION_MOVED}
               className={cx(
-                "relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 font-medium text-signal transition hover:bg-signal/20 disabled:opacity-50",
+                "relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 font-medium text-signal transition disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >
-              {busy ? <Zap size={16} className="animate-pulse" /> : <Play size={16} />}
-              {busy ? "Opening covenant…" : "Open covenant"}
+              <Play size={16} />
+              Open covenant · moved to CAPPO
             </button>
           </div>
         </Panel>
@@ -237,7 +196,8 @@ export default function ConsolePage() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-mute">
-                Fire a call to see the verdict, the cryptographic proof hash, and the trust delta.
+                Verdicts, proof hashes and trust deltas are produced by CAPPO&apos;s governed /v1/exec
+                boundary; this console no longer executes calls.
               </p>
             )}
           </Panel>
@@ -284,33 +244,3 @@ function Select({
   );
 }
 
-function Switch({
-  label,
-  on,
-  onClick,
-  danger,
-}: {
-  label: string;
-  on: boolean;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button onClick={onClick} className="flex w-full items-center justify-between py-1">
-      <span className={cx("text-sm", on ? (danger ? "text-rose-300" : "text-white") : "text-mute")}>{label}</span>
-      <span
-        className={cx(
-          "relative h-5 w-9 rounded-full border transition",
-          on ? (danger ? "border-rose-500/50 bg-rose-500/30" : "border-signal/50 bg-signal/30") : "border-white/15 bg-white/5",
-        )}
-      >
-        <span
-          className={cx(
-            "absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-all",
-            on ? "left-[18px] bg-white" : "left-[3px] bg-white/40",
-          )}
-        />
-      </span>
-    </button>
-  );
-}
