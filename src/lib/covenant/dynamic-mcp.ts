@@ -117,7 +117,8 @@ export async function translateOpenApiToMcp(
 
       const toolName = `${sanitizeId(serverId)}__${operationId}`;
       const capabilityId = `dynamic::${sanitizeId(serverId)}::${operationId}`;
-      // Endpoint uses the proxy so all calls flow through Covenant governance
+      // Identifies the operation only. The direct proxy is retired: execution of a
+      // dynamic tool goes Covenant Phase 6 -> MCPBridge -> CAPPO /v1/exec.
       const proxyEndpoint = `https://${process.env.NEXT_PUBLIC_APP_URL ?? "control.veklom.com"}/api/proxy/${serverId}${path}`;
 
       const tool: DynamicTool = {
