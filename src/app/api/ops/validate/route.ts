@@ -1,94 +1,21 @@
-import { NextResponse } from 'next/server';
-import { requireAdminToken } from '@/lib/covenant/admin-auth';
+import { NextResponse } from "next/server";
 
-// Operator probe: it anchors a validation signature in PGL with cAPI's own
-// key, so only a caller holding the Covenant admin token may trigger it.
-export async function POST(request: Request) {
-  const auth = requireAdminToken(request);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  try {
-    const body = await request.json();
-    const { capabilityId, capabilityName } = body;
+/**
+ * Retired operator probe — POST /api/ops/validate
+ *
+ * It claimed to "commit a cryptographic signature to PGL" but posted to a PGL
+ * route that does not exist (/api/tools/mint_settlement_evidence_tool), so it
+ * could only fail. Evidence is written to PGL's real /api/v1/ledger/events by
+ * the services that own each event; cAPI does not mint evidence on demand.
+ */
+export const dynamic = "force-dynamic";
 
-    if (!capabilityId) {
-      return NextResponse.json({ error: 'Missing capabilityId' }, { status: 400 });
-    }
-
-    const logs: string[] = [];
-    logs.push(`[cAPI-ops-router] Received ops command for "${capabilityName}" (${capabilityId})`);
-
-    // 1. Probe CAPPO and only report latency when an HTTP response was actually observed.
-    const start = Date.now();
-    let cappoRes: Response;
-    try {
-      cappoRes = await fetch('http://cappo-backend-node:8002/health', {
-        signal: AbortSignal.timeout(2000),
-      });
-    } catch (_error) {
-      logs.push('[CAPPO] Health probe failed. No latency measurement recorded.');
-      return NextResponse.json(
-        { error: 'CAPPO health probe failed', logs },
-        { status: 502 },
-      );
-    }
-
-    const latency = Date.now() - start;
-    if (!cappoRes.ok) {
-      logs.push(`[CAPPO] Health probe returned status ${cappoRes.status} after ${latency}ms.`);
-      return NextResponse.json(
-        { error: 'CAPPO health probe unhealthy', cappo_status: cappoRes.status, logs },
-        { status: 502 },
-      );
-    }
-    logs.push(`[CAPPO] Health probe succeeded in ${latency}ms.`);
-
-    // 2. Commit cryptographic signature to PGL (GnomLedger).
-    logs.push('[PGL] Committing capability validation signature...');
-
-    const pglBaseUrl = process.env.PGL_BASE_URL ?? 'https://pgl.veklom.com';
-    const pglRes = await fetch(`${pglBaseUrl}/api/tools/mint_settlement_evidence_tool`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        capabilityId,
-        capabilityName,
-        timestamp: new Date().toISOString(),
-        latency_ms: latency,
-      }),
-      signal: AbortSignal.timeout(3000),
-    });
-
-    if (!pglRes.ok) {
-      logs.push(`[PGL] Error: returned status ${pglRes.status}. Aborting — no fallback hash.`);
-      return NextResponse.json(
-        { error: 'PGL commitment failed', pgl_status: pglRes.status, logs },
-        { status: 502 },
-      );
-    }
-
-    const pglData = await pglRes.json();
-    const anchorHash = pglData.evidence_hash ?? pglData.result?.evidence_hash ?? pglData.response?.evidence_hash ?? null;
-
-    if (!anchorHash) {
-      logs.push('[PGL] Error: response OK but no evidence_hash returned. Aborting.');
-      return NextResponse.json(
-        { error: 'PGL returned no evidence hash', logs },
-        { status: 502 },
-      );
-    }
-
-    logs.push(`[PGL] Evidence anchored. Hash: ${anchorHash}`);
-
-    return NextResponse.json({
-      success: true,
-      logs,
-      anchorHash,
-    });
-  } catch (error) {
-    console.error('Ops Validate Error:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
-  }
+export function POST(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "OPS_VALIDATE_RETIRED",
+      detail: "This probe targeted a PGL route that does not exist. Use /health/dependencies for liveness.",
+    },
+    { status: 410 },
+  );
 }
