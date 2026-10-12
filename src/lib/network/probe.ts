@@ -99,16 +99,14 @@ export function overallState(results: DependencyResult[]): DependencyState {
 export interface DependencyMap {
   cappo: DependencyResult;
   pgl: DependencyResult;
-  byos: DependencyResult;
   lockerphycer: DependencyResult;
 }
 
 export async function probeDependencies(): Promise<DependencyMap> {
-  const [cappo, pgl, byos, lockerphycer] = await Promise.all([
+  const [cappo, pgl, lockerphycer] = await Promise.all([
     probe(process.env.CAPPO_BACKEND_URL, { hostHeader: 'cappo.veklom.com' }),
     probe(process.env.PGL_LEDGER_URL, { hostHeader: 'pgl.veklom.com' }),
-    probe(process.env.BYOS_MCP_GATEWAY_URL, { hostHeader: 'api.veklom.com' }),
     probe(process.env.LOCKERPHYCER_URL ?? process.env.LOCKERPHYCER_BACKEND_URL),
   ]);
-  return { cappo, pgl, byos, lockerphycer };
+  return { cappo, pgl, lockerphycer };
 }

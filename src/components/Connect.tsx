@@ -37,7 +37,6 @@ const DEPENDENCY_LABEL: Record<string, string> = {
   cappo: "CAPPO · authority",
   pgl: "PGL · evidence ledger",
   lockerphycer: "Lockerphycer · identity",
-  byos: "BYOS · data plane",
 };
 
 export default function Connect() {
