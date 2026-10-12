@@ -78,11 +78,17 @@ export default function Overview() {
 
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
-              href="/console"
+              href="/connect"
               className="group inline-flex items-center gap-2 rounded-lg border border-signal/50 bg-signal/15 px-5 py-3 font-medium text-signal transition hover:bg-signal/25"
             >
-              Open the live console
+              Connect an agent
               <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              href="/console"
+              className="inline-flex items-center gap-2 rounded-lg border hairline bg-ink-800/60 px-5 py-3 text-white/80 transition hover:bg-ink-700"
+            >
+              Open the console
             </Link>
             <Link
               href="/ledger"
