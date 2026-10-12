@@ -5,32 +5,13 @@ import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
   Radio,
-  TerminalSquare,
-  Boxes,
-  Bot,
-  ScrollText,
-  Scale,
-  ShieldAlert,
-  FlaskConical,
-  Plug,
   UserCheck,
   Clock as ClockIcon
 } from "lucide-react";
 import { cx } from "./util";
+import { NAV } from "./nav";
 import { useLive } from "./useLive";
 import { useState, useEffect } from "react";
-
-const NAV = [
-  { href: "/", label: "Overview", icon: Radio, hint: "Live" },
-  { href: "/connect", label: "Connect", icon: Plug, hint: "MCP" },
-  { href: "/console", label: "Console", icon: TerminalSquare, hint: "Gate" },
-  { href: "/registry", label: "Registry", icon: Boxes, hint: "Capabilities" },
-  { href: "/agents", label: "Agents", icon: Bot, hint: "Trust & Risk" },
-  { href: "/ledger", label: "Ledger", icon: ScrollText, hint: "Evidence" },
-  { href: "/governance", label: "Governance", icon: Scale, hint: "Rules" },
-  { href: "/safety", label: "Safety", icon: ShieldAlert, hint: "Quarantine" },
-  { href: "/testbed", label: "Test Bed", icon: FlaskConical, hint: "MCP/API" },
-];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
