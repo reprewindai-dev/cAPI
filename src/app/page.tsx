@@ -9,6 +9,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, LiveDot, Panel } from "@/components/ui";
 import { BrandMark } from "@/components/BrandMark";
 import { cx } from "@/components/util";
+import { NetworkSection } from "@/components/Network";
 
 const PHASES = [
   "Identity",
@@ -100,8 +101,13 @@ export default function Overview() {
         </div>
       </section>
 
-      {/* live metrics */}
-      <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      <NetworkSection view="overview" />
+
+      {/* this node's covenant engine */}
+      <div className="mt-6">
+        <Eyebrow>This node&apos;s covenant engine</Eyebrow>
+      </div>
+      <section className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <Metric label="covenants" value={m?.total} />
         <Metric label="authorized" value={m?.authorized} tone="text-signal" />
         <Metric label="denied" value={m?.denied} tone="text-rose-300" />

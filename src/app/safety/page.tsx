@@ -7,6 +7,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel } from "@/components/ui";
 import { cx, postJSON, refreshLive, SEVERITY_STYLE, short, timeAgo } from "@/components/util";
 import type { QuarantinedRequest } from "@/lib/covenant/types";
+import { NetworkSection } from "@/components/Network";
 
 const Q_TONE: Record<string, string> = {
   quarantined: "border-amber-400/40 bg-amber-400/10 text-amber-300",
@@ -37,6 +38,7 @@ export default function SafetyPage() {
         Behavioral baselines flag deviations in real time. High-severity calls are quarantined and
         held until an M-of-N human quorum signs off.
       </p>
+      <NetworkSection view="safety" />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_440px]">
         {/* quarantine queue */}

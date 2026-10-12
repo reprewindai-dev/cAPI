@@ -7,6 +7,7 @@ import { Pipeline } from "@/components/Pipeline";
 import { Eyebrow, LiveDot, Panel, Verdict, KeyVal } from "@/components/ui";
 import { cx, short } from "@/components/util";
 import type { CovenantResponse } from "@/lib/covenant/types";
+import { NetworkSection } from "@/components/Network";
 
 interface Preset {
   label: string;
@@ -83,6 +84,7 @@ export default function ConsolePage() {
         </div>
         <LiveDot label="RUNTIME LIVE" />
       </div>
+      <NetworkSection view="console" />
 
       {/* presets */}
       <div className="mt-6 flex flex-wrap gap-2">
