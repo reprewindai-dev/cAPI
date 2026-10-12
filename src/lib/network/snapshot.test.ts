@@ -88,3 +88,32 @@ describe("buildNetworkSnapshot", () => {
     expect(snapshot.dependencies.cappo.state).toBe("unconfigured");
   });
 });
+
+describe("buildNetworkSnapshot with a stalled service registry", () => {
+  afterEach(() => {
+    vi.doUnmock("@/lib/covenant/engine");
+    vi.resetModules();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("answers with the registry marked unavailable instead of hanging", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/covenant/engine", () => ({
+      getEngine: () => ({
+        services: { list: () => new Promise(() => {}), isStale: () => false },
+        syncRegistry: () => new Promise(() => {}),
+        registryStatus: () => ({ state: "degraded", source: "configured-registry", detail: "stalled", checked_at: "t" }),
+      }),
+    }));
+    delete process.env.CAPPO_BACKEND_URL;
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ status: "ok" })));
+    vi.useFakeTimers();
+    const { buildNetworkSnapshot: build } = await import("./snapshot");
+    const pending = build();
+    await vi.advanceTimersByTimeAsync(3_100);
+    const snapshot = await pending;
+    expect(snapshot.services).toEqual({ state: "unavailable", error: "service registry timeout" });
+    expect(snapshot.registry?.detail).toBe("stalled");
+  });
+});

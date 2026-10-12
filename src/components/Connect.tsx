@@ -10,7 +10,9 @@ import {
   findEventHash,
   mcpCall,
   newOperationId,
+  getSessionCredentials,
   readMount,
+  setSessionCredentials,
   upstreamBody,
   workspaceFromToken,
   type MountHandle,
@@ -274,9 +276,9 @@ function Catalog() {
 }
 
 function TryIt() {
-  const [credential, setCredential] = useState("");
-  const [workspace, setWorkspace] = useState("");
-  const [project, setProject] = useState("try-it");
+  const [credential, setCredential] = useState(() => getSessionCredentials().credential);
+  const [workspace, setWorkspace] = useState(() => getSessionCredentials().workspace);
+  const [project, setProject] = useState(() => getSessionCredentials().project);
   const [mount, setMount] = useState<MountHandle | null>(null);
   const [receipt, setReceipt] = useState<string | undefined>();
   const [log, setLog] = useState<Partial<Record<StepKey, RpcExchange>>>({});
@@ -418,8 +420,12 @@ function TryIt() {
             value={credential}
             onChange={(e) => {
               setCredential(e.target.value);
+              setSessionCredentials({ credential: e.target.value });
               const hint = workspaceFromToken(e.target.value);
-              if (hint && !workspace) setWorkspace(hint);
+              if (hint && !workspace) {
+                setWorkspace(hint);
+                setSessionCredentials({ workspace: hint });
+              }
             }}
             placeholder="Session or machine token"
             className="w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-mute/60"
@@ -428,13 +434,21 @@ function TryIt() {
         <Field label="Workspace ID">
           <input
             value={workspace}
-            onChange={(e) => setWorkspace(e.target.value)}
+            onChange={(e) => {
+              setWorkspace(e.target.value);
+              setSessionCredentials({ workspace: e.target.value });
+            }}
             placeholder="from your veklom.com account"
             className="w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-mute/60"
           />
         </Field>
         <Field label="Project">
-          <input value={project} onChange={(e) => setProject(e.target.value)} className="w-full bg-transparent font-mono text-sm text-white outline-none" />
+          <input
+            value={project}
+            onChange={(e) => {
+              setProject(e.target.value);
+              setSessionCredentials({ project: e.target.value });
+            }} className="w-full bg-transparent font-mono text-sm text-white outline-none" />
         </Field>
       </div>
 
