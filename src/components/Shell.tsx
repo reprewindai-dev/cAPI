@@ -12,6 +12,7 @@ import {
   Scale,
   ShieldAlert,
   FlaskConical,
+  Plug,
   UserCheck,
   Clock as ClockIcon
 } from "lucide-react";
@@ -21,6 +22,7 @@ import { useState, useEffect } from "react";
 
 const NAV = [
   { href: "/", label: "Overview", icon: Radio, hint: "Live" },
+  { href: "/connect", label: "Connect", icon: Plug, hint: "MCP" },
   { href: "/console", label: "Console", icon: TerminalSquare, hint: "Gate" },
   { href: "/registry", label: "Registry", icon: Boxes, hint: "Capabilities" },
   { href: "/agents", label: "Agents", icon: Bot, hint: "Trust & Risk" },
@@ -72,7 +74,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Global telemetry variables */}
         <div className="flex items-center gap-4 text-[10px] font-mono">
-          <div className="flex items-center bg-[#15181E] rounded-md p-1 border border-[#23272E]">
+          <div className="hidden sm:flex items-center bg-[#15181E] rounded-md p-1 border border-[#23272E]">
             <button
               onClick={() => setViewMode('human')}
               className={`px-3 py-1 rounded-sm transition-all ${
