@@ -89,13 +89,17 @@ per-agent hash chain that survives restarts and is independently verifiable at
 `GET /api/v1/ledger/agents/{agent_id}/verify`. Forwarding is best-effort and
 never blocks the pipeline: each evidence record carries an `external_ledger`
 status (`disabled` · `pending` · `sealed` · `failed`) visible via `/api/audit`
-and the Phase 8 trace.
+and the Phase 8 trace; `pgl_status` mirrors it (`not_submitted` · `submitted` ·
+`committed` · `failed`). The record's `pgl_hash` (its sealed envelope hash) is
+sent as the gnomledger `idempotency_key`, so a repeated forward collapses to one
+ledger event.
 
 | Env var | Purpose | Default |
 |---------|---------|---------|
 | `PGL_LEDGER_URL` | gnomledger base URL; empty = forwarding disabled | _(unset)_ |
 | `PGL_LEDGER_API_KEY` | gnomledger `x-api-key` (operator role or higher) | _(unset)_ |
 | `PGL_LEDGER_TIMEOUT_MS` | forward request timeout | `8000` |
+| `CAPI_PROBE_TIMEOUT_MS` | per-dependency `/health` probe timeout (`/health/dependencies`, `/api/network`) | `5000` |
 
 ## Stack
 

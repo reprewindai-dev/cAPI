@@ -31,11 +31,21 @@ import type {
   CovenantResponse,
   Decision,
   Evidence,
+  LedgerForward,
+  LedgerForwardStatus,
   PhaseStatus,
   PhaseTrace,
   Policy,
   TrustScore,
 } from "./types";
+
+/** `pgl_status` for each external PGL forward outcome. */
+const PGL_STATUS: Record<LedgerForwardStatus, Evidence["pgl_status"]> = {
+  disabled: "not_submitted",
+  pending: "submitted",
+  sealed: "committed",
+  failed: "failed",
+};
 
 export interface ProcessOptions {
   /** Approver ids supplied with the call (satisfies approval gates). */
@@ -215,7 +225,8 @@ export class CovenantRuntime {
     const evidenceKeyId = process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || "dev-ephemeral-key";
     
     const evidence: Evidence = {
-      pgl_hash: null,
+      // The sealed envelope hash is the record's content hash and its PGL idempotency key.
+      pgl_hash: executionEvidence.signatures.envelope_hash.value,
       pgl_status: "not_submitted",
       evidence_version: "2",
       evidence_id: executionEvidence.evidence_id,
@@ -227,7 +238,7 @@ export class CovenantRuntime {
       
       connection_id: request.connection_id,
       intermediary_receipt_id: receiptId,
-      seal_nonce: "ed25519-signed",
+      seal_nonce: executionEvidence.evidence_id,
       timestamp: executionEvidence.authorization.timestamp_utc,
       who: {
         agent_id: executionEvidence.actor.agent_id,
@@ -281,21 +292,24 @@ export class CovenantRuntime {
    * `/api/pgl/{hash}` reflect the live status.
    */
   private forwardToPgl(evidence: Evidence): void {
+    const record = (forward: LedgerForward): void => {
+      evidence.external_ledger = forward;
+      evidence.pgl_status = PGL_STATUS[forward.status];
+      if (forward.event_hash) evidence.pgl_event_hash = forward.event_hash;
+    };
     if (!isLedgerConfigured()) {
-      evidence.external_ledger = { status: "disabled" };
+      record({ status: "disabled" });
       return;
     }
-    evidence.external_ledger = { status: "pending" };
+    record({ status: "pending" });
     forwardEvidence(evidence)
-      .then((forward) => {
-        evidence.external_ledger = forward;
-      })
+      .then(record)
       .catch((err: unknown) => {
-        evidence.external_ledger = {
+        record({
           status: "failed",
           forwarded_at: new Date().toISOString(),
           error: err instanceof Error ? err.message : String(err),
-        };
+        });
       });
   }
 

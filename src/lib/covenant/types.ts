@@ -163,8 +163,9 @@ export interface LedgerForward {
 }
 
 export interface Evidence {
-  // Legacy field: populate only after an actual PGL commitment.
+  /** Sealed envelope hash; also the PGL forward's idempotency key. */
   pgl_hash: string | null;
+  /** Mirrors `external_ledger.status`: disabled → not_submitted, pending → submitted, sealed → committed. */
   pgl_status: "not_submitted" | "submitted" | "committed" | "failed";
   pgl_certificate_id?: string;
   pgl_event_hash?: string;
@@ -180,7 +181,7 @@ export interface Evidence {
   connection_id: string;
   intermediary_receipt_id?: string;
   delegation_chain_hash?: string;
-  /** Cryptographic nonce embedded in the HMAC hash input to prevent replay/forgery. */
+  /** Per-record random UUID (the sealed `evidence_id`) embedded in the envelope hash input. */
   seal_nonce: string;
   timestamp: string;
   who: { agent_id: string; agent_public_key: string; owner_id: string };
