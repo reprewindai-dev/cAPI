@@ -47,7 +47,6 @@ describe("buildNetworkSnapshot", () => {
   beforeEach(() => {
     process.env.CAPPO_BACKEND_URL = "https://cappo.test";
     process.env.PGL_LEDGER_URL = "https://pgl.test";
-    delete process.env.BYOS_MCP_GATEWAY_URL;
     delete process.env.LOCKERPHYCER_URL;
     delete process.env.LOCKERPHYCER_BACKEND_URL;
   });
@@ -73,7 +72,7 @@ describe("buildNetworkSnapshot", () => {
     expect(snapshot.vnp).toEqual({ state: "unavailable", error: "HTTP 503" });
     expect(snapshot.beacon_keys.state).toBe("live");
     expect(snapshot.dependencies.cappo.state).toBe("healthy");
-    expect(snapshot.dependencies.byos.state).toBe("unconfigured");
+    expect(Object.keys(snapshot.dependencies).sort()).toEqual(["cappo", "lockerphycer", "pgl"]);
     expect(JSON.stringify(snapshot.dependencies)).not.toContain("cappo.test");
     expect(snapshot.mcp_tools.some((t) => t.name === "veklom_discover_capabilities" && t.public)).toBe(true);
     expect(snapshot.mcp_tools.some((t) => t.name === "veklom_mount_capability" && !t.public)).toBe(true);

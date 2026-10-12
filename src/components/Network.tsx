@@ -15,7 +15,6 @@ const DEPENDENCY_LABEL: Record<string, string> = {
   cappo: "CAPPO · authority",
   pgl: "PGL · evidence ledger",
   lockerphycer: "Lockerphycer · identity",
-  byos: "BYOS · data plane",
 };
 
 /** The live-network block shown at the top of each console tab. */
