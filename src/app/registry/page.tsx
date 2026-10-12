@@ -8,6 +8,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel, Meter } from "@/components/ui";
 import { cx, getJSON } from "@/components/util";
 import type { DiscoveredCapability } from "@/lib/covenant/api";
+import { NetworkSection } from "@/components/Network";
 
 export default function RegistryPage() {
   const { data } = useLive();
@@ -36,6 +37,7 @@ export default function RegistryPage() {
         Discovery isn&apos;t a static manifest. It&apos;s the live, policy-true answer: effective
         permissions computed from composed policies, current trust, and delegation depth.
       </p>
+      <NetworkSection view="registry" />
 
       <div className="mt-6 flex flex-wrap gap-2">
         {agents.map((a) => (
