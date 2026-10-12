@@ -15,7 +15,13 @@ interface ProbeOptions {
   hostHeader?: string;
 }
 
-const TIMEOUT_MS = 2_000;
+const DEFAULT_TIMEOUT_MS = 5_000;
+
+/** Per-probe timeout from `CAPI_PROBE_TIMEOUT_MS`; invalid or unset values use the default. */
+export function probeTimeoutMs(): number {
+  const parsed = Number(process.env.CAPI_PROBE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
+}
 
 function dependencyHost(rawUrl: string): string | null {
   try {
@@ -51,7 +57,7 @@ export async function probe(
 
   const started = performance.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), probeTimeoutMs());
   try {
     let response = await fetch(endpoint(configured, '/health'), {
       method: 'GET',
