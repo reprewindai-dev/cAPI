@@ -215,11 +215,28 @@ export function toBeaconKeys(body: unknown): BeaconKeySummary | undefined {
   };
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function readServices(): Promise<SourceResult<ServiceSummary[]>> {
   try {
     const engine = getEngine();
     const now = new Date();
-    const list = await engine.services.list();
+    // The registry store is Redis in production; a stalled connection must not stall the snapshot.
+    const list = await withTimeout(engine.services.list(), FETCH_TIMEOUT_MS);
     return {
       state: "live",
       data: list.map((service) => ({
@@ -233,8 +250,8 @@ async function readServices(): Promise<SourceResult<ServiceSummary[]>> {
         stale: engine.services.isStale(service, now),
       })),
     };
-  } catch {
-    return { state: "unavailable", error: "service registry unavailable" };
+  } catch (error) {
+    return { state: "unavailable", error: error instanceof Error && error.message === "timeout" ? "service registry timeout" : "service registry unavailable" };
   }
 }
 
@@ -242,7 +259,7 @@ async function readServices(): Promise<SourceResult<ServiceSummary[]>> {
 async function syncRegistry(): Promise<void> {
   try {
     const engine = getEngine();
-    await Promise.race([engine.syncRegistry(), new Promise<void>((resolve) => setTimeout(resolve, FETCH_TIMEOUT_MS))]);
+    await withTimeout(engine.syncRegistry(), FETCH_TIMEOUT_MS);
   } catch {
     // Reported through readRegistryStatus().
   }

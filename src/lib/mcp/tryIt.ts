@@ -161,3 +161,17 @@ export function newOperationId(): string {
 function str(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
+
+/**
+ * In-memory only: lets the Connect page and the Console share what the person
+ * typed while they move between tabs. Never written to storage, lost on reload.
+ */
+const session = { credential: "", workspace: "", project: "try-it" };
+
+export function getSessionCredentials(): { credential: string; workspace: string; project: string } {
+  return { ...session };
+}
+
+export function setSessionCredentials(patch: Partial<typeof session>): void {
+  Object.assign(session, patch);
+}
