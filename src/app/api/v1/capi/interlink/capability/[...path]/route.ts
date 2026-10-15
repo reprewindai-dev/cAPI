@@ -6,6 +6,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Next.js route modules may only export route fields, so these stay module-local.
+const CONSEQUENCE_TIMEOUT_MS = 45_000;
+const READ_TIMEOUT_MS = 3_000;
+
 type RouteContext = {
   params: Promise<{ path: string[] }>;
 };
@@ -103,15 +107,20 @@ async function forward(
 
   const controller = new AbortController();
   // Mount creation, execute and terminate each anchor synchronously to PGL
-  // (CAPPO waits up to PGL_LEDGER_TIMEOUT_MS, 8 s by default). A shorter bridge
-  // timeout returned 504 while CAPPO had already created the mount, leaving an
-  // orphan with a live token. Reads keep the short timeout.
+  // (CAPPO waits up to PGL_LEDGER_TIMEOUT_MS, 8 s by default, per anchor).
+  // Execute is the longest: the target call (HTTP targets 10 s, compute 15 s)
+  // plus up to three anchors, about 39 s at worst. A bridge timeout below that
+  // returns 504 while CAPPO has already committed the consequence or created
+  // the mount, so the caller is told it failed when it did not. The frontend
+  // proxy (60 s) and the edge (100 s) stay above this. Reads keep 3 s.
   const anchorsSynchronously =
     path[0] === "mounts" &&
     request.method === "POST" &&
     (path.length === 1 ||
       (path.length === 3 && (path[2] === "execute" || path[2] === "terminate")));
-  const timeoutMs = anchorsSynchronously ? 10000 : 3000;
+  const timeoutMs = anchorsSynchronously
+    ? CONSEQUENCE_TIMEOUT_MS
+    : READ_TIMEOUT_MS;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const upstream = await fetch(
