@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, X, Lock, Clock } from "lucide-react";
 import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel, Meter } from "@/components/ui";
-import { cx, getJSON } from "@/components/util";
+import { cx, getList, type ListResult } from "@/components/util";
 import type { DiscoveredCapability } from "@/lib/covenant/api";
 import { NetworkSection } from "@/components/Network";
 
@@ -14,7 +14,7 @@ export default function RegistryPage() {
   const { data } = useLive();
   const agents = useMemo(() => data?.agents ?? [], [data]);
   const [agent, setAgent] = useState<string>("");
-  const [discovered, setDiscovered] = useState<DiscoveredCapability[]>([]);
+  const [discovery, setDiscovery] = useState<ListResult<DiscoveredCapability> | null>(null);
 
   // Default the selection to the first live agent once data arrives.
   const firstAgent = agents[0]?.identity.agent_id;
@@ -22,10 +22,15 @@ export default function RegistryPage() {
 
   useEffect(() => {
     if (!agent) return;
-    getJSON<{ data: DiscoveredCapability[] }>(`/api/capi/v1/capabilities?agent_id=${agent}`).then((d) =>
-      setDiscovered(d.data),
-    );
+    let current = true;
+    getList<DiscoveredCapability>(`/api/capi/v1/capabilities?agent_id=${encodeURIComponent(agent)}`).then((result) => {
+      if (current) setDiscovery(result);
+    });
+    return () => {
+      current = false;
+    };
   }, [agent, data]);
+  const discovered = discovery?.ok ? discovery.items : [];
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -56,6 +61,16 @@ export default function RegistryPage() {
           </button>
         ))}
       </div>
+
+      {discovery && !discovery.ok && (
+        <div className="mt-5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 font-mono text-xs text-amber-300">
+          Degraded — capability discovery failed{discovery.status ? ` (HTTP ${discovery.status})` : ""}: {discovery.error}.
+          No permissions are shown until the registry answers.
+        </div>
+      )}
+      {discovery?.ok && discovered.length === 0 && (
+        <div className="mt-5 font-mono text-xs text-mute">Needs proof — the registry returned no capabilities for this agent.</div>
+      )}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {discovered.map(({ capability, permissions }) => (

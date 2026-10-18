@@ -16,6 +16,23 @@ export async function getJSON<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export type ListResult<T> = { ok: true; items: T[] } | { ok: false; status: number; error: string };
+
+// Reads an API response shaped { data: T[] } without assuming success: a non-OK status, an
+// unreadable body or a body without a data array comes back as an error, never as undefined.
+export async function getList<T>(url: string): Promise<ListResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: "no-store" });
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : "request failed" };
+  }
+  const body = (await res.json().catch(() => null)) as { data?: unknown; error?: unknown } | null;
+  if (res.ok && Array.isArray(body?.data)) return { ok: true, items: body.data as T[] };
+  const reason = typeof body?.error === "string" ? body.error : res.ok ? "response has no data list" : res.statusText || "request failed";
+  return { ok: false, status: res.status, error: reason };
+}
+
 export function refreshLive(): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("covenant:refresh"));
