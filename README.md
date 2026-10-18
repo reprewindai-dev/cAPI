@@ -89,13 +89,17 @@ per-agent hash chain that survives restarts and is independently verifiable at
 `GET /api/v1/ledger/agents/{agent_id}/verify`. Forwarding is best-effort and
 never blocks the pipeline: each evidence record carries an `external_ledger`
 status (`disabled` · `pending` · `sealed` · `failed`) visible via `/api/audit`
-and the Phase 8 trace.
+and the Phase 8 trace; `pgl_status` mirrors it (`not_submitted` · `submitted` ·
+`committed` · `failed`). The record's `pgl_hash` (its sealed envelope hash) is
+sent as the gnomledger `idempotency_key`, so a repeated forward collapses to one
+ledger event.
 
 | Env var | Purpose | Default |
 |---------|---------|---------|
 | `PGL_LEDGER_URL` | gnomledger base URL; empty = forwarding disabled | _(unset)_ |
 | `PGL_LEDGER_API_KEY` | gnomledger `x-api-key` (operator role or higher) | _(unset)_ |
 | `PGL_LEDGER_TIMEOUT_MS` | forward request timeout | `8000` |
+| `CAPI_PROBE_TIMEOUT_MS` | per-dependency `/health` probe timeout (`/health/dependencies`, `/api/network`) | `5000` |
 
 ## Stack
 
@@ -103,13 +107,14 @@ Next.js 14 (App Router) · TypeScript · Tailwind CSS · Framer Motion · Node `
 
 ## Deployment
 
-This project is fully ready to be deployed to a **Coolify** instance (e.g., hosted on Hetzner) using the provided `Dockerfile` or Nixpacks.
+This project is deployed using standard Docker Compose as part of the Veklom local origin.
+Do not use Coolify, Hetzner, or third-party PAAS platforms.
 
-### Deploying to Coolify
+### Local Origin Deployment
 
-1. Connect your repository to your Coolify instance.
-2. Create a new Resource in Coolify and select **Project / Application**.
-3. Choose the repository and branch.
-4. Coolify will auto-detect the configuration. Under the **Build Pack** setting, select **Docker** (it should automatically pick up the `Dockerfile` at the root).
-5. Ensure the **Port** is set to `3003`.
-6. Deploy! The `Dockerfile` uses Next.js Standalone mode for a highly optimized, lightweight Node.js production image.
+1. Ensure you have Docker and Docker Compose installed on your Windows host.
+2. Build and start the container:
+   ```bash
+   docker-compose up -d --build
+   ```
+3. The container binds to `127.0.0.1:3003` locally and is exposed via the unified `cloudflared` tunnel, never directly to `0.0.0.0`.

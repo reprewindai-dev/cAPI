@@ -5,62 +5,25 @@ import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
   Radio,
-  TerminalSquare,
-  Boxes,
-  Bot,
-  ScrollText,
-  Scale,
-  ShieldAlert,
-  FlaskConical,
-  Clock3,
   UserCheck,
-  Clock as ClockIcon,
-  Activity,
-  Zap,
-  Signature
+  Clock as ClockIcon
 } from "lucide-react";
 import { cx } from "./util";
+import { NAV } from "./nav";
 import { useLive } from "./useLive";
 import { useState, useEffect } from "react";
-
-const NAV = [
-  { href: "/", label: "Overview", icon: Radio, status: "Live" },
-  { href: "/console", label: "Console", icon: TerminalSquare, status: "Gate" },
-  { href: "/registry", label: "Registry", icon: Boxes, status: "Mesh" },
-  { href: "/agents", label: "Agents", icon: Bot, status: "Trust" },
-  { href: "/ledger", label: "Ledger", icon: ScrollText, status: "Proof" },
-  { href: "/governance", label: "Governance", icon: Scale, status: "Rules" },
-  { href: "/safety", label: "Safety", icon: ShieldAlert, status: "Guard" },
-  { href: "/testbed", label: "Test Bed", icon: FlaskConical, status: "MCP/API" },
-  { href: "/", label: "Global Command", icon: Activity, hint: "Live" },
-  { href: "/console", label: "Capability Mesh", icon: Zap, hint: "Mesh" },
-  { href: "/registry", label: "Registry", icon: Boxes, hint: "Capabilities" },
-  { href: "/agents", label: "Agents", icon: Bot, hint: "Trust & Risk" },
-  { href: "/ledger", label: "Ledger", icon: ScrollText, hint: "Evidence" },
-  { href: "/governance", label: "Audit & Compliance", icon: Scale, hint: "Rules" },
-  { href: "/safety", label: "Quarantine Zone", icon: Signature, hint: "Review" },
-];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data } = useLive();
   const m = data?.metrics;
-  const [clock, setClock] = React.useState("");
-
-  React.useEffect(() => {
-    const update = () => setClock(new Date().toISOString().replace("T", " ").slice(0, 19) + "Z");
-    update();
-    const id = window.setInterval(update, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const [virtTime, setVirtTime] = useState('');
   const [viewMode, setViewMode] = useState('human');
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setVirtTime(now.toLocaleTimeString() + ' (GMT-7)');
+      setVirtTime(now.toLocaleTimeString([], { timeZoneName: 'short' }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -92,7 +55,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Global telemetry variables */}
         <div className="flex items-center gap-4 text-[10px] font-mono">
-          <div className="flex items-center bg-[#15181E] rounded-md p-1 border border-[#23272E]">
+          <div className="hidden sm:flex items-center bg-[#15181E] rounded-md p-1 border border-[#23272E]">
             <button
               onClick={() => setViewMode('human')}
               className={`px-3 py-1 rounded-sm transition-all ${

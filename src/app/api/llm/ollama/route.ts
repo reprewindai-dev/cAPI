@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminToken } from "@/lib/covenant/admin-auth";
 
-// Enterprise-grade Ollama zero-config proxy for Qwen
-// Defaults to the local Hetzner Coolify host networking, or localhost as fallback
+// Ollama proxy for operator use only: it forwards arbitrary prompts to a
+// private model host, so it is gated by the Covenant admin token.
 const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
 
 export async function POST(req: NextRequest) {
+  const auth = requireAdminToken(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   try {
     const body = await req.json();
     const prompt = body.prompt;

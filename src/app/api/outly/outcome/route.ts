@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server";
 import { IntegrationUnavailable, postIntegration, requireIntegration, AuthorityDenied } from "@/lib/covenant/integrations";
+import { checkRegistryAuth } from "@/lib/covenant/registry-auth";
 import { outcomeSchema, readJson } from "@/lib/covenant/validation";
 
+// Service-to-service boundary: outcomes are anchored in PGL under cAPI's own
+// key, so the caller must present the registry bearer (same policy as
+// /api/v1/registry/*).
 export async function POST(req: Request) {
+  const auth = checkRegistryAuth(req);
+  if (auth.configurationError) {
+    return NextResponse.json({ error: "Registry authentication is not configured" }, { status: 503 });
+  }
+  if (!auth.ok) {
+    return NextResponse.json({ error: "Invalid or missing registry token" }, { status: 401 });
+  }
+
   const parsed = await readJson(req, outcomeSchema);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
