@@ -10,7 +10,7 @@ export interface RequestedSideEffect {
   lane: 1 | 2 | 3;
   amount_minor?: number | null;
   currency?: string | null;
-  parameters?: any;
+  parameters?: Record<string, unknown>;
 }
 
 export interface ProposedActionV1 {
@@ -33,7 +33,7 @@ export interface ProposedActionV1 {
 
 export interface DecisionModification {
   field: string;
-  value?: any;
+  value?: unknown;
   reason: string;
 }
 

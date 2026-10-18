@@ -8,8 +8,10 @@ import { NextResponse } from "next/server";
  * authority boundary. This is deliberately a clear migration response rather
  * than an HTTP redirect because the two contracts have different security
  * semantics.
+ *
+ * The request is accepted for the route-handler contract but deliberately never read.
  */
-export async function POST(_request: Request) {
+export const POST: (request: Request) => Promise<NextResponse> = async () => {
   return NextResponse.json(
     {
       error: "LEGACY_EXECUTION_ENTRYPOINT_RETIRED",
@@ -18,4 +20,4 @@ export async function POST(_request: Request) {
     },
     { status: 410 },
   );
-}
+};

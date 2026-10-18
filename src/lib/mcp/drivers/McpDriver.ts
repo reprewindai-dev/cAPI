@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServerDescriptor } from "../schema";
 
 const LOCAL_PROCESS_ENV_ALLOWLIST = [
@@ -34,7 +35,7 @@ function buildLocalProcessEnv(descriptor: McpServerDescriptor): Record<string, s
 }
 
 export class McpDriver {
-  static async connect(descriptor: McpServerDescriptor): Promise<{ client: Client, tools: any[] }> {
+  static async connect(descriptor: McpServerDescriptor): Promise<{ client: Client, tools: Tool[] }> {
     const client = new Client({
       name: "veklom-capi",
       version: "1.0.0",

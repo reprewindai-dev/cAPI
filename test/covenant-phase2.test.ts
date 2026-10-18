@@ -6,7 +6,6 @@ import { resolveSigningKeyPair } from "../src/lib/covenant/evidence-standard";
 describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
   test("Runtime initialization fails closed if production keys are missing", () => {
     // Save original env
-    const originalEnv = process.env.NODE_ENV;
     const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
     const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
@@ -31,7 +30,6 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
   });
 
   test("resolveSigningKeyPair fails in production if SIGNING_KEY is present but KEY_ID is missing", () => {
-    const originalEnv = process.env.NODE_ENV;
     const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
     const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
@@ -52,7 +50,6 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
   });
 
   test("Runtime in development allows ephemeral keys", () => {
-    const originalEnv = process.env.NODE_ENV;
     const originalKey = process.env.COVENANT_EVIDENCE_SIGNING_KEY;
     const originalKeyId = process.env.COVENANT_EVIDENCE_KEY_ID;
 
@@ -128,7 +125,7 @@ describe("Covenant Phase 2 - Execution Boundary & Cryptography", () => {
       timestamp: new Date().toISOString()
     };
     
-    const message = canonicalRequestMessage(requestObj as any);
+    const message = canonicalRequestMessage(requestObj);
     const request = {
       ...requestObj,
       agent_signature: signMessage(message, agentKeys.privateKeyB64)

@@ -12,7 +12,6 @@
  * capability is registered in the runtime just like any native capability.
  */
 
-import { randomUUID } from "crypto";
 import { getEngine } from "./engine";
 import { toolRegistry, type DynamicTool } from "./tool-registry";
 import type { CapabilityIdentity } from "./types";
@@ -51,7 +50,6 @@ interface OAPISpec {
 }
 
 const SUPPORTED_METHODS = ["get", "post", "put", "delete", "patch"] as const;
-type SupportedMethod = (typeof SUPPORTED_METHODS)[number];
 
 // ---------------------------------------------------------------------------
 // Schema builder

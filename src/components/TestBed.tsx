@@ -59,8 +59,8 @@ function isCovenantResponse(value: unknown): value is CovenantResponse {
 
 export default function TestBed() {
   const { data } = useLive();
-  const agents = data?.agents ?? [];
-  const capabilities = data?.capabilities ?? [];
+  const agents = useMemo(() => data?.agents ?? [], [data]);
+  const capabilities = useMemo(() => data?.capabilities ?? [], [data]);
   const [servers, setServers] = useState<McpServersResponse | null>(null);
   const [tab, setTab] = useState<Tab>("playground");
   const [agentId, setAgentId] = useState("");
@@ -81,13 +81,11 @@ export default function TestBed() {
     [capabilities, capabilityId],
   );
 
-  useEffect(() => {
-    if (!agentId && agents[0]) setAgentId(agents[0].identity.agent_id);
-  }, [agentId, agents]);
-
-  useEffect(() => {
-    if (!capabilityId && capabilities[0]) setCapabilityId(capabilities[0].capability_id);
-  }, [capabilityId, capabilities]);
+  // Default the selection to the first live agent/capability once data arrives.
+  const firstAgent = agents[0]?.identity.agent_id;
+  const firstCapability = capabilities[0]?.capability_id;
+  if (!agentId && firstAgent) setAgentId(firstAgent);
+  if (!capabilityId && firstCapability) setCapabilityId(firstCapability);
 
   useEffect(() => {
     fetch("/api/mcp/servers", { cache: "no-store" })

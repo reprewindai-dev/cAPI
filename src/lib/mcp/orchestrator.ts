@@ -1,9 +1,19 @@
 import { getEngine } from "../covenant/engine";
 import type { CapabilityIdentity } from "../covenant/types";
 import { McpDriver } from "./drivers/McpDriver";
-import type { McpServerDescriptor, McpServerInstance } from "./schema";
+import type { McpServerDescriptor, McpServerInstance, McpServerType } from "./schema";
 import fs from "fs";
 import path from "path";
+
+/** One entry under `mcpServers` in mcp-servers.json. */
+interface McpServerConfigEntry {
+  type?: McpServerType;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  serverUrl?: string;
+  disabled?: boolean;
+}
 
 class McpOrchestrator {
   private instances = new Map<string, McpServerInstance>();
@@ -18,7 +28,7 @@ class McpOrchestrator {
       if (fs.existsSync(configPath)) {
         const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
         if (config.mcpServers) {
-          for (const [id, serverConfig] of Object.entries<any>(config.mcpServers)) {
+          for (const [id, serverConfig] of Object.entries<McpServerConfigEntry>(config.mcpServers)) {
             if (!serverConfig.disabled) {
               const descriptor: McpServerDescriptor = {
                 id,
@@ -68,7 +78,7 @@ class McpOrchestrator {
           description: t.description || `MCP tool ${t.name}`,
           provider_id: descriptor.id,
           endpoint: `mcp://${descriptor.id}/${t.name}`,
-          input_schema: t.inputSchema as any,
+          input_schema: t.inputSchema,
           output_schema: { type: "object" },
           public_key: "",
           created_at: new Date().toISOString(),
@@ -87,9 +97,9 @@ class McpOrchestrator {
         };
         engine.runtime.registerCapability(cap);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       instance.status = "error";
-      instance.error = err.message;
+      instance.error = err instanceof Error ? err.message : undefined;
       console.error(`Failed to start MCP server ${descriptor.id}:`, err);
     }
 

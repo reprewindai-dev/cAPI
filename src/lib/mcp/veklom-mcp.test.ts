@@ -1,6 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleHttp, TOOLS } from "./veklom-mcp";
 
+/** The parts of a JSON-RPC response these tests read. */
+interface RpcResponse {
+  result: {
+    protocolVersion: string;
+    capabilities: { tools?: unknown };
+    serverInfo: { name: string };
+    tools: { name: string }[];
+    isError?: boolean;
+    structuredContent: Record<string, unknown>;
+  };
+  error: { code: number };
+}
+
 function rpc(body: unknown, authorization?: string): Request {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (authorization) headers.authorization = authorization;
@@ -9,7 +22,7 @@ function rpc(body: unknown, authorization?: string): Request {
 
 async function call(name: string, args: Record<string, unknown>, authorization?: string) {
   const response = await handleHttp(rpc({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name, arguments: args } }, authorization));
-  return { status: response.status, json: (await response.json()) as any };
+  return { status: response.status, json: (await response.json()) as RpcResponse };
 }
 
 describe("Veklom MCP server (cAPI)", () => {
@@ -31,7 +44,7 @@ describe("Veklom MCP server (cAPI)", () => {
 
   it("initializes with a supported protocol version and the tools capability", async () => {
     const response = await handleHttp(rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }));
-    const json = (await response.json()) as any;
+    const json = (await response.json()) as RpcResponse;
     expect(response.status).toBe(200);
     expect(json.result.protocolVersion).toBe("2025-06-18");
     expect(json.result.capabilities.tools).toBeDefined();
@@ -39,15 +52,15 @@ describe("Veklom MCP server (cAPI)", () => {
   });
 
   it("answers an unsupported protocol version with its own latest version", async () => {
-    const json = (await (await handleHttp(rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "1999-01-01" } }))).json()) as any;
+    const json = (await (await handleHttp(rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "1999-01-01" } }))).json()) as RpcResponse;
     expect(json.result.protocolVersion).toBe("2025-11-25");
   });
 
   it("lists every tool publicly, without calling any upstream", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const json = (await (await handleHttp(rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }))).json()) as any;
-    expect(json.result.tools.map((t: any) => t.name)).toEqual(TOOLS.map((t) => t.name));
+    const json = (await (await handleHttp(rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }))).json()) as RpcResponse;
+    expect(json.result.tools.map((t) => t.name)).toEqual(TOOLS.map((t) => t.name));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -152,11 +165,11 @@ describe("Veklom MCP server (cAPI)", () => {
   });
 
   it("returns protocol errors for unknown methods, unknown tools and bad JSON", async () => {
-    expect(((await (await handleHttp(rpc({ jsonrpc: "2.0", id: 3, method: "resources/list" }))).json()) as any).error.code).toBe(-32601);
-    expect(((await (await handleHttp(rpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "nope" } }))).json()) as any).error.code).toBe(-32602);
+    expect(((await (await handleHttp(rpc({ jsonrpc: "2.0", id: 3, method: "resources/list" }))).json()) as RpcResponse).error.code).toBe(-32601);
+    expect(((await (await handleHttp(rpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "nope" } }))).json()) as RpcResponse).error.code).toBe(-32602);
     const bad = await handleHttp(new Request("http://localhost/mcp", { method: "POST", body: "{not json" }));
     expect(bad.status).toBe(400);
-    expect(((await bad.json()) as any).error.code).toBe(-32700);
+    expect(((await bad.json()) as RpcResponse).error.code).toBe(-32700);
   });
 
   it("refuses oversized bodies", async () => {

@@ -69,10 +69,10 @@ export async function POST(req: NextRequest) {
       eval_duration: data.eval_duration
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[OLLAMA PROXY ERROR]", error);
     return NextResponse.json(
-      { error: "INTERNAL_ERROR", message: "Failed to communicate with Ollama service", details: error.message },
+      { error: "INTERNAL_ERROR", message: "Failed to communicate with Ollama service", details: error instanceof Error ? error.message : undefined },
       { status: 500 }
     );
   }

@@ -7,7 +7,7 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 export interface CapabilitySnapshot {
   agent_id: string | null;
   timestamp: number;
-  capabilities: any[];
+  capabilities: unknown[];
   hash: string;
 }
 
@@ -26,7 +26,7 @@ function decodeCanonicalEd25519Signature(signature: string): Buffer | null {
   }
 }
 
-export function generateSnapshot(capabilities: any[], agentId: string | null): { snapshot: CapabilitySnapshot, signature: string } {
+export function generateSnapshot(capabilities: unknown[], agentId: string | null): { snapshot: CapabilitySnapshot, signature: string } {
   const timestamp = Date.now();
   
   // Stable stringify for deterministic hashing

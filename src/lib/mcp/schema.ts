@@ -1,3 +1,6 @@
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+
 export type McpServerType = "local-process" | "remote-http" | "remote-sse";
 
 export interface McpServerDescriptor {
@@ -23,7 +26,7 @@ export type McpServerStatus = "disconnected" | "connecting" | "connected" | "err
 export interface McpServerInstance {
   descriptor: McpServerDescriptor;
   status: McpServerStatus;
-  tools: any[];
-  client?: any; // The connected MCP SDK Client instance
+  tools: Tool[];
+  client?: Client; // The connected MCP SDK Client instance
   error?: string;
 }
