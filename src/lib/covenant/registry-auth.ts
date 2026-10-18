@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "crypto";
+
 export type RegistryAuthCheck = {
   ok: boolean;
   authenticated: boolean;
@@ -6,13 +8,21 @@ export type RegistryAuthCheck = {
 
 const UNAUTHENTICATED_REGISTRY_ENVIRONMENTS = new Set(["local", "development", "test"]);
 
+/** Constant-time comparison; a length mismatch is a mismatch, never a throw. */
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 /**
  * Apply the registry's one authentication policy to every mutating registry route.
  * Local, development, and test may opt into explicitly unauthenticated registration
  * only when no registry token is configured; all other environments fail closed.
  */
 export function checkRegistryAuth(request: Request): RegistryAuthCheck {
-  const expected = process.env.CAPI_REGISTRY_TOKEN?.trim();
+  const canonicalToken = process.env.COVENANT_REGISTRY_API_KEY;
+  const expected = (canonicalToken !== undefined ? canonicalToken : process.env.CAPI_REGISTRY_TOKEN)?.trim();
   const header = request.headers.get("authorization")?.trim() ?? "";
   const presented = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
@@ -26,7 +36,7 @@ export function checkRegistryAuth(request: Request): RegistryAuthCheck {
     return { ok: true, authenticated: false, configurationError: false };
   }
 
-  if (presented && presented === expected) {
+  if (presented && safeEqual(presented, expected)) {
     return { ok: true, authenticated: true, configurationError: false };
   }
 

@@ -7,7 +7,7 @@ function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export function requireAdminToken(req: NextRequest): { ok: true } | { ok: false; status: number; error: string } {
+export function requireAdminToken(req: Pick<NextRequest, "headers">): { ok: true } | { ok: false; status: number; error: string } {
   const expected = process.env.COVENANT_ADMIN_TOKEN || "";
   if (!expected) {
     return {

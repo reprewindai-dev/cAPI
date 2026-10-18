@@ -7,6 +7,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel, Meter } from "@/components/ui";
 import { cx, postJSON, refreshLive, THREAT_STYLE, SEVERITY_STYLE } from "@/components/util";
 import type { AgentView } from "@/lib/covenant/api";
+import { NetworkSection } from "@/components/Network";
 
 export default function AgentsPage() {
   const { data, refresh } = useLive();
@@ -28,6 +29,7 @@ export default function AgentsPage() {
         Trust moves on every covenant. Risk fuses trust, anomaly history, denials, and budget
         pressure into a live threat level — and tells you what to do about it.
       </p>
+      <NetworkSection view="agents" />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         {agents.map((a) => (

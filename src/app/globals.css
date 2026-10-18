@@ -67,6 +67,22 @@ body {
   border-radius: 999px;
 }
 
+.input {
+  width: 100%;
+  border: 1px solid #23272e;
+  border-radius: 8px;
+  background: rgba(11, 12, 14, 0.8);
+  padding: 0.55rem 0.75rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+  color: #fff;
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(52, 231, 197, 0.45);
+}
+
 .text-glow {
   text-shadow: 0 0 22px rgba(52, 231, 197, 0.45);
 }

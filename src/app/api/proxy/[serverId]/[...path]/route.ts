@@ -1,181 +1,29 @@
+import { NextResponse } from "next/server";
+
 /**
- * Transparent Proxy — /api/proxy/{serverId}/{...path}
+ * Retired transparent proxy — /api/proxy/{serverId}/{...path}
  *
- * Direct calls bypass the normal CAPPO-governed request path, so this route
- * is strictly internal service-to-service and fail-closed on X-API-Key.
+ * It forwarded any method straight to a registered MCP server, gated only by
+ * the decommissioned BYOS internal key: a second consequence path that never
+ * crossed CAPPO. cAPI connects and discovers; CAPPO is the sole consequence
+ * authority (Capability OS wiring W-05/W-07). Every method answers 410 so the
+ * path cannot be re-enabled by setting an environment variable.
  */
-
-import { timingSafeEqual } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
-import { toolRegistry } from "@/lib/covenant/tool-registry";
-import { OutboundTargetError } from "@/lib/security/outbound-target";
-import { pinnedOutboundRequest } from "@/lib/security/pinned-outbound-request";
-
 export const dynamic = "force-dynamic";
 
-const INTERNAL_API_KEY = process.env.BYOS_INTERNAL_API_KEY ?? "";
-const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 15_000);
-
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
+function retired(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "LEGACY_EXECUTION_ENTRYPOINT_RETIRED",
+      detail: "cAPI does not forward consequential calls to targets. Consequences execute only through CAPPO.",
+      execution_entrypoint: "/v1/capability/mounts/{mount_id}/execute",
+    },
+    { status: 410 },
+  );
 }
 
-function requireInternalApiKey(req: NextRequest): NextResponse | null {
-  if (!INTERNAL_API_KEY) {
-    return NextResponse.json(
-      { error: "BYOS_INTERNAL_API_KEY is not configured; direct proxy is locked" },
-      { status: 503 },
-    );
-  }
-
-  const provided = req.headers.get("x-api-key")?.trim() ?? "";
-  if (!safeEqual(provided, INTERNAL_API_KEY)) {
-    return NextResponse.json(
-      { error: "Invalid or missing internal API key" },
-      { status: 401 },
-    );
-  }
-
-  return null;
-}
-
-async function handleProxy(
-  req: NextRequest,
-  serverId: string,
-  pathParts: string[],
-): Promise<NextResponse> {
-  const authError = requireInternalApiKey(req);
-  if (authError) return authError;
-
-  const server = toolRegistry.getServer(serverId);
-  if (!server) {
-    return NextResponse.json(
-      { error: `Unknown server: ${serverId}. Register it through the authenticated MCP registry first.` },
-      { status: 404 },
-    );
-  }
-
-  const startedAt = Date.now();
-  const remainingBudgetMs = () => Math.max(0, PROXY_TIMEOUT_MS - (Date.now() - startedAt));
-
-  const path = `/${pathParts.join("/")}`;
-  let targetUrl: URL;
-  try {
-    const baseUrl = new URL(server.base_url);
-    const basePath = baseUrl.pathname.replace(/\/+$/, "");
-    const requestPath = path.replace(/^\/+/, "");
-    baseUrl.pathname = `${basePath}/${requestPath}`.replace(/\/{2,}/g, "/");
-    baseUrl.search = req.nextUrl.search;
-    targetUrl = baseUrl;
-  } catch (error) {
-    console.error("Proxy target URL construction failed", error);
-    return NextResponse.json({ error: "Registered upstream target is unavailable" }, { status: 502 });
-  }
-
-  // Forward only headers that are explicitly safe for registered upstreams.
-  // Caller credentials, cookies, proxy credentials, internal keys, response-only
-  // headers, and hop-by-hop headers must never leave cAPI through this route.
-  const forwardHeaders = new Headers();
-  const allowedRequestHeaders = new Set([
-    "accept",
-    "content-type",
-    "if-match",
-    "if-none-match",
-    "range",
-  ]);
-  for (const [key, value] of req.headers.entries()) {
-    if (!allowedRequestHeaders.has(key.toLowerCase())) continue;
-    forwardHeaders.set(key, value);
-  }
-
-  forwardHeaders.set("X-Covenant-Proxy", "cAPI/1.0");
-  forwardHeaders.set("X-Server-Id", serverId);
-  forwardHeaders.set("X-Forwarded-Path", path);
-  forwardHeaders.set("X-Request-Time", new Date().toISOString());
-
-  const remaining = remainingBudgetMs();
-  if (remaining <= 0) {
-    return NextResponse.json({ error: "Upstream request timed out" }, { status: 504 });
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), remaining);
-
-  try {
-    const body = req.method !== "GET" && req.method !== "HEAD"
-      ? await req.arrayBuffer()
-      : undefined;
-
-    const upstream = await pinnedOutboundRequest(targetUrl, {
-      method: req.method,
-      headers: forwardHeaders,
-      body: body ?? null,
-      signal: controller.signal,
-      resolverTimeoutMs: remainingBudgetMs(),
-    });
-    clearTimeout(timer);
-
-    // Node's request primitive does not follow redirects. Reject them rather
-    // than exposing Location to a caller that might automatically follow a
-    // private or metadata redirect target.
-    if (upstream.status >= 300 && upstream.status < 400) {
-      return NextResponse.json({ error: "Upstream redirect is not permitted" }, { status: 502 });
-    }
-
-    const responseBody = upstream.arrayBuffer();
-    const responseHeaders = new Headers();
-    upstream.headers.forEach((value, key) => {
-      if (["transfer-encoding", "connection", "keep-alive", "location"].includes(key.toLowerCase())) return;
-      responseHeaders.set(key, value);
-    });
-    responseHeaders.set("X-Covenant-Proxy", "cAPI/1.0");
-    responseHeaders.set("X-Upstream-Status", String(upstream.status));
-
-    return new NextResponse(responseBody, {
-      status: upstream.status,
-      headers: responseHeaders,
-    });
-  } catch (err: unknown) {
-    clearTimeout(timer);
-    if (err instanceof OutboundTargetError) {
-      const timedOut = err.code === "OUTBOUND_DNS_TIMEOUT";
-      return NextResponse.json(
-        {
-          error: timedOut ? "Upstream request timed out" : "Registered upstream target is not permitted",
-          code: err.code,
-        },
-        { status: timedOut ? 504 : 403 },
-      );
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    const isTimeout = message.includes("abort") || message.includes("timeout");
-    console.error("MCP proxy upstream request failed", err);
-    return NextResponse.json(
-      { error: isTimeout ? "Upstream request timed out" : "Upstream request failed" },
-      { status: isTimeout ? 504 : 502 },
-    );
-  }
-}
-
-export async function GET(req: NextRequest, context: { params: Promise<{ serverId: string; path: string[] }> }) {
-  const params = await context.params;
-  return handleProxy(req, params.serverId, params.path);
-}
-export async function POST(req: NextRequest, context: { params: Promise<{ serverId: string; path: string[] }> }) {
-  const params = await context.params;
-  return handleProxy(req, params.serverId, params.path);
-}
-export async function PUT(req: NextRequest, context: { params: Promise<{ serverId: string; path: string[] }> }) {
-  const params = await context.params;
-  return handleProxy(req, params.serverId, params.path);
-}
-export async function DELETE(req: NextRequest, context: { params: Promise<{ serverId: string; path: string[] }> }) {
-  const params = await context.params;
-  return handleProxy(req, params.serverId, params.path);
-}
-export async function PATCH(req: NextRequest, context: { params: Promise<{ serverId: string; path: string[] }> }) {
-  const params = await context.params;
-  return handleProxy(req, params.serverId, params.path);
-}
+export const GET = retired;
+export const POST = retired;
+export const PUT = retired;
+export const PATCH = retired;
+export const DELETE = retired;

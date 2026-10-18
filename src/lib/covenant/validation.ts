@@ -155,14 +155,19 @@ const signedRequestSchema = z.object({
   timestamp: isoDate,
 }).strict();
 
+/**
+ * Server-signed call shape accepted from untrusted callers of /api/request.
+ * `approvals`, `tamper` and `bypass` are runtime-internal controls (see
+ * SignedCallInput / ProcessOptions): approvals satisfy the Phase 5 approval
+ * gate and must come from the approval path, not the requester. The schema is
+ * strict, so any of those keys in the body is rejected with 400.
+ */
 const serverCallSchema = z.object({
   agent_id: boundedString(128),
   capability_id: boundedString(256),
   action: boundedString(256),
   input: boundedRecord.default({}),
   context: contextSchema.optional(),
-  approvals: z.array(boundedString(256)).max(32).optional(),
-  tamper: z.boolean().optional(),
 }).strict();
 
 export const requestInputSchema = z.union([signedRequestSchema, serverCallSchema]);

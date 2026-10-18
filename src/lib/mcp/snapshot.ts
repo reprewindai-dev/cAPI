@@ -11,6 +11,21 @@ export interface CapabilitySnapshot {
   hash: string;
 }
 
+function decodeCanonicalEd25519Signature(signature: string): Buffer | null {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signature) || signature.length % 4 !== 0) {
+    return null;
+  }
+  try {
+    const decoded = Buffer.from(signature, 'base64');
+    if (decoded.length !== 64 || decoded.toString('base64') !== signature) {
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
 export function generateSnapshot(capabilities: any[], agentId: string | null): { snapshot: CapabilitySnapshot, signature: string } {
   const timestamp = Date.now();
   
@@ -31,9 +46,11 @@ export function generateSnapshot(capabilities: any[], agentId: string | null): {
 }
 
 export function verifySnapshot(hash: string, signature: string): boolean {
+  const signatureBytes = decodeCanonicalEd25519Signature(signature);
+  if (!signatureBytes) return false;
   try {
-    return crypto.verify(null, Buffer.from(hash), publicKey, Buffer.from(signature, 'base64'));
-  } catch (err) {
+    return crypto.verify(null, Buffer.from(hash), publicKey, signatureBytes);
+  } catch {
     return false;
   }
 }

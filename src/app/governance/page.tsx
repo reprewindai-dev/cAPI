@@ -8,6 +8,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel, KeyVal } from "@/components/ui";
 import { cx, getJSON, postJSON, refreshLive } from "@/components/util";
 import type { EffectivePermissions, PolicyComposition } from "@/lib/covenant/types";
+import { NetworkSection } from "@/components/Network";
 
 const TIER_TONE: Record<string, string> = {
   system: "border-rose-500/40 bg-rose-500/10 text-rose-300",
@@ -53,6 +54,7 @@ export default function GovernancePage() {
         System guardrails, owner intent, and runtime defaults merge into one verdict. Toggle a
         policy and watch the effective permissions recompute live.
       </p>
+      <NetworkSection view="governance" />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_420px]">
         {/* policies */}

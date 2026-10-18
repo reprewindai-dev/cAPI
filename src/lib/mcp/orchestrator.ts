@@ -96,27 +96,9 @@ class McpOrchestrator {
     return instance;
   }
 
-  async executeTool(capabilityId: string, args: Record<string, unknown>): Promise<any> {
-    // capabilityId looks like: "mcp::server_id::tool_name"
-    const parts = capabilityId.split("::");
-    if (parts.length !== 3 || parts[0] !== "mcp") {
-      throw new Error(`Invalid MCP capability ID: ${capabilityId}`);
-    }
-    const serverId = parts[1];
-    const toolName = parts[2];
-
-    const instance = this.instances.get(serverId);
-    if (!instance || instance.status !== "connected" || !instance.client) {
-      throw new Error(`MCP server ${serverId} is not connected`);
-    }
-
-    // Use the official SDK to execute the tool natively
-    const result = await instance.client.callTool({
-      name: toolName,
-      arguments: args,
-    });
-    return result;
-  }
+  // No tool execution here. Calling a tool on a connected MCP server directly would be a
+  // consequence path that never crosses CAPPO (the sole authority). Connected servers are
+  // for discovery; consequential calls go through CAPPO mounts (veklom-mcp action tools).
 
   getInstances(): McpServerInstance[] {
     return Array.from(this.instances.values());

@@ -1,0 +1,118 @@
+/**
+ * Health probes for the Veklom services cAPI depends on. Shared by
+ * /health/dependencies and the /api/network snapshot.
+ */
+
+export type DependencyState = 'healthy' | 'degraded' | 'unavailable' | 'unconfigured';
+
+export interface DependencyResult {
+  state: DependencyState;
+  host: string | null;
+  latency_ms: number | null;
+}
+
+interface ProbeOptions {
+  hostHeader?: string;
+}
+
+const DEFAULT_TIMEOUT_MS = 5_000;
+
+/** Per-probe timeout from `CAPI_PROBE_TIMEOUT_MS`; invalid or unset values use the default. */
+export function probeTimeoutMs(): number {
+  const parsed = Number(process.env.CAPI_PROBE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
+}
+
+function dependencyHost(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl).host;
+  } catch {
+    return null;
+  }
+}
+
+function endpoint(rawUrl: string, path: string): string {
+  return `${rawUrl.replace(/\/+$/, '')}${path}`;
+}
+
+function probeHeaders(hostHeader?: string): HeadersInit {
+  const headers: HeadersInit = {
+    Accept: 'application/json',
+  };
+  if (hostHeader) headers.Host = hostHeader;
+  return headers;
+}
+
+export async function probe(
+  rawUrl: string | undefined,
+  options: ProbeOptions = {},
+): Promise<DependencyResult> {
+  const configured = rawUrl?.trim();
+  if (!configured) {
+    return { state: 'unconfigured', host: null, latency_ms: null };
+  }
+
+  const host = dependencyHost(configured);
+  if (!host) return { state: 'unavailable', host: null, latency_ms: null };
+
+  const started = performance.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), probeTimeoutMs());
+  try {
+    let response = await fetch(endpoint(configured, '/health'), {
+      method: 'GET',
+      headers: probeHeaders(options.hostHeader),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      let fallbackPath = '/protocol.json';
+      let fallbackHost = configured;
+      if (configured.includes('/api/v1/mcp/gateway')) {
+        fallbackPath = '/health';
+        fallbackHost = configured.replace('/api/v1/mcp/gateway', '');
+      }
+
+      response = await fetch(endpoint(fallbackHost, fallbackPath), {
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: probeHeaders(options.hostHeader),
+      });
+    }
+    const latency_ms = Math.round(performance.now() - started);
+    if (response.ok) return { state: 'healthy', host, latency_ms };
+    if (response.status >= 500) return { state: 'unavailable', host, latency_ms };
+    return { state: 'degraded', host, latency_ms };
+  } catch {
+    return {
+      state: 'unavailable',
+      host,
+      latency_ms: Math.round(performance.now() - started),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function overallState(results: DependencyResult[]): DependencyState {
+  if (results.some((result) => result.state === 'unavailable')) return 'unavailable';
+  if (results.some((result) => result.state === 'degraded')) return 'degraded';
+  if (results.some((result) => result.state === 'healthy')) return 'healthy';
+  return 'unconfigured';
+}
+
+export interface DependencyMap {
+  cappo: DependencyResult;
+  pgl: DependencyResult;
+  lockerphycer: DependencyResult;
+}
+
+export async function probeDependencies(): Promise<DependencyMap> {
+  const [cappo, pgl, lockerphycer] = await Promise.all([
+    probe(process.env.CAPPO_BACKEND_URL, { hostHeader: 'cappo.veklom.com' }),
+    probe(process.env.PGL_LEDGER_URL, { hostHeader: 'pgl.veklom.com' }),
+    probe(process.env.LOCKERPHYCER_URL ?? process.env.LOCKERPHYCER_BACKEND_URL),
+  ]);
+  return { cappo, pgl, lockerphycer };
+}

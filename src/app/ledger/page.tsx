@@ -8,6 +8,7 @@ import { useLive } from "@/components/useLive";
 import { Eyebrow, Panel, Verdict, KeyVal, Json } from "@/components/ui";
 import { cx, getJSON, short, timeAgo } from "@/components/util";
 import type { Evidence } from "@/lib/covenant/types";
+import { NetworkSection } from "@/components/Network";
 
 export default function LedgerPage() {
   const { data } = useLive();
@@ -41,6 +42,7 @@ export default function LedgerPage() {
         Each record seals who / what / when / why / how, links to the one before it, and is
         tamper-evident. Replay walks the chain backwards from any point.
       </p>
+      <NetworkSection view="ledger" />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[420px_1fr]">
         <Panel className="p-2">
