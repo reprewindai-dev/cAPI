@@ -15,21 +15,24 @@ export default function LedgerPage() {
   const audit = useMemo(() => data?.audit ?? [], [data]);
   const [selected, setSelected] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Evidence | null>(null);
-  const [chain, setChain] = useState<Evidence[]>([]);
+  // A replayed chain belongs to the record it was replayed from; selecting a
+  // different record shows no chain until it is replayed.
+  const [replayed, setReplayed] = useState<{ hash: string; chain: Evidence[] } | null>(null);
+  const chain = replayed && replayed.hash === selected ? replayed.chain : [];
 
-  useEffect(() => {
-    if (!selected && audit.length) setSelected(audit[0].pgl_hash);
-  }, [audit, selected]);
+  // Default the selection to the newest audit record once data arrives.
+  const newest = audit[0]?.pgl_hash;
+  if (!selected && newest) setSelected(newest);
 
   useEffect(() => {
     if (!selected) return;
     getJSON<Evidence>(`/api/capi/v1/evidence/${selected}`).then(setEvidence);
-    setChain([]);
   }, [selected]);
 
   const replay = () => {
     if (!selected) return;
-    getJSON<{ chain: Evidence[] }>(`/api/replay/${selected}`).then((d) => setChain(d.chain));
+    const hash = selected;
+    getJSON<{ chain: Evidence[] }>(`/api/replay/${hash}`).then((d) => setReplayed({ hash, chain: d.chain }));
   };
 
   return (

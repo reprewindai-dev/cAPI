@@ -16,9 +16,9 @@ export default function RegistryPage() {
   const [agent, setAgent] = useState<string>("");
   const [discovered, setDiscovered] = useState<DiscoveredCapability[]>([]);
 
-  useEffect(() => {
-    if (!agent && agents.length) setAgent(agents[0].identity.agent_id);
-  }, [agents, agent]);
+  // Default the selection to the first live agent once data arrives.
+  const firstAgent = agents[0]?.identity.agent_id;
+  if (!agent && firstAgent) setAgent(firstAgent);
 
   useEffect(() => {
     if (!agent) return;

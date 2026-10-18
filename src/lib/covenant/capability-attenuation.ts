@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto";
 import { canonicalEncode } from "./evidence-standard";
-import { sha256, signMessage, verifyMessage } from "./crypto";
+import { signMessage, verifyMessage } from "./crypto";
 
 export interface CapabilityConstraints {
   max_amount?: number;

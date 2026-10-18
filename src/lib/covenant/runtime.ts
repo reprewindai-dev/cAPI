@@ -7,21 +7,13 @@
  * is fully explainable. The connection itself is the asset.
  */
 
-import { randomUUID } from "crypto";
 import { MCPBridge } from "./mcp-bridge";
-import {
-  canonicalRequestMessage,
-  generateNonce,
-  hashObject,
-  hmacHashObject,
-  sha256,
-  verifyMessage,
-} from "./crypto";
-import { EvidenceGenerator, resolveSigningKeyPair } from "./evidence-standard";
+import { canonicalRequestMessage, verifyMessage } from "./crypto";
+import { EvidenceGenerator, resolveSigningKeyPair, type JsonObject } from "./evidence-standard";
 import { SafetyLayer } from "./safety";
 import { IntelligenceLayer } from "./intelligence";
 import { GovernanceLayer } from "./governance";
-import { ManagedIntermediary, IntermediaryReceipt } from "./accountable-intermediary";
+import { ManagedIntermediary } from "./accountable-intermediary";
 import { forwardEvidence, isLedgerConfigured } from "./pgl-ledger";
 import type {
   AgentIdentity,
@@ -46,6 +38,15 @@ const PGL_STATUS: Record<LedgerForwardStatus, Evidence["pgl_status"]> = {
   sealed: "committed",
   failed: "failed",
 };
+
+/**
+ * A CovenantRequest is a JSON payload parsed off the wire; its declared type
+ * uses `unknown` leaves and has no index signature, so it is narrowed to the
+ * evidence layer's JSON type at this single boundary. No conversion happens.
+ */
+function requestAsJson(request: CovenantRequest): JsonObject {
+  return request as unknown as JsonObject;
+}
 
 export interface ProcessOptions {
   /** Approver ids supplied with the call (satisfies approval gates). */
@@ -77,8 +78,6 @@ export class CovenantRuntime {
 
   constructor() {
     const keys = resolveSigningKeyPair();
-    const evidenceKeyId = process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || "dev-ephemeral-key";
-    
     if (process.env.NODE_ENV === "production") {
       if (!process.env.COVENANT_EVIDENCE_KEY_ID?.trim() || !process.env.COVENANT_EVIDENCE_SIGNING_KEY?.trim()) {
         throw new Error("COVENANT_EVIDENCE_SIGNING_KEY and COVENANT_EVIDENCE_KEY_ID are required in production");
@@ -210,12 +209,12 @@ export class CovenantRuntime {
     const executionEvidence = await this.evidenceGenerator.generateEvidence({
       agent_id: agent?.agent_id ?? request.agent_id,
       agent_public_key: agent?.public_key ?? "unverified",
-      request: request as any,
+      request: requestAsJson(request),
       authorization_decision: status === "authorized" || status === "error" ? "authorized" : (status === "quarantined" ? "quarantined" : "denied"),
       policy_id: policy_id,
       decision_reason: status,
       execution_status: status === "error" ? "error" : "success",
-      execution_result: output as any,
+      execution_result: output as JsonObject,
       duration_ms: executionMs,
       regulatory_category: capability?.metadata.category ?? "tool",
       retention_years: 7,
@@ -397,7 +396,7 @@ export class CovenantRuntime {
     ): Promise<CovenantResponse> => {
       const res = await this.intermediary.processRequest({
         request_id: request.connection_id,
-        request: request as any,
+        request: requestAsJson(request),
         policy_check: () => ({ allowed: false, reason })
       });
       
@@ -479,7 +478,7 @@ export class CovenantRuntime {
         }, p);
       const res = await this.intermediary.processRequest({
         request_id: request.connection_id,
-        request: request as any,
+        request: requestAsJson(request),
         policy_check: () => ({ allowed: false, reason: "policy_denied" })
       });
       const delta = this.applyTrust(request.agent_id, "denied");
@@ -541,7 +540,7 @@ export class CovenantRuntime {
         }, p);
       const res = await this.intermediary.processRequest({
         request_id: request.connection_id,
-        request: request as any,
+        request: requestAsJson(request),
         policy_check: () => ({ allowed: false, reason: "quarantined" })
       });
       const delta = this.applyTrust(request.agent_id, "quarantined");
@@ -579,7 +578,7 @@ export class CovenantRuntime {
       }, p);
       const res = await this.intermediary.processRequest({
         request_id: request.connection_id,
-        request: request as any,
+        request: requestAsJson(request),
         policy_check: () => ({ allowed: false, reason: "budget_exceeded" })
       });
       const delta = this.applyTrust(request.agent_id, "denied");
@@ -617,7 +616,7 @@ export class CovenantRuntime {
         }, p);
         const res = await this.intermediary.processRequest({
           request_id: request.connection_id,
-          request: request as any,
+          request: requestAsJson(request),
           policy_check: () => ({ allowed: false, reason: "awaiting_approval" })
         });
         const delta = this.applyTrust(request.agent_id, "quarantined");
@@ -648,7 +647,7 @@ export class CovenantRuntime {
     const execStart = performance.now();
     const res = await this.intermediary.processRequest({
       request_id: request.connection_id,
-      request: request as any,
+      request: requestAsJson(request),
       rate_limit_check: () => ({ allowed: true }),
       policy_check: () => ({ allowed: true })
     });

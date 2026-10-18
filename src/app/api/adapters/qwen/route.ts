@@ -11,8 +11,10 @@ export const dynamic = "force-dynamic";
  * install template is applied by the ECC installer on the operator's machine,
  * not by the discovery service. It is retired rather than gated so the
  * capability does not exist to be misconfigured.
+ *
+ * The request is accepted for the route-handler contract but deliberately never read.
  */
-export async function POST(_request: Request) {
+export const POST: (request: Request) => Promise<NextResponse> = async () => {
   return NextResponse.json(
     {
       error: "QWEN_ADAPTER_RETIRED",
@@ -22,4 +24,4 @@ export async function POST(_request: Request) {
     },
     { status: 410 },
   );
-}
+};

@@ -16,13 +16,18 @@ const Q_TONE: Record<string, string> = {
   expired: "hairline text-mute",
 };
 
+/** A per-click approver id for the human quorum signature. */
+function newApproverId(): string {
+  return `human:sec-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export default function SafetyPage() {
   const { data, refresh } = useLive();
   const anomalies = data?.anomalies ?? [];
   const quarantine = data?.quarantine ?? [];
 
   const act = async (q: QuarantinedRequest, action: "approve" | "deny") => {
-    const approver = `human:sec-${Math.random().toString(36).slice(2, 7)}`;
+    const approver = newApproverId();
     await postJSON(`/api/quarantine/${q.quarantine_id}`, { action, approver });
     refresh();
     refreshLive();

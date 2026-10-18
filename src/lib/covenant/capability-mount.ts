@@ -94,9 +94,7 @@ const EXECUTION_LANES: ExecutionLane[] = [1, 2, 3];
 const MOUNT_AUTHORITIES: MountAuthority[] = ["NONE", "CAPPO"];
 
 declare global {
-  // eslint-disable-next-line no-var
   var __capabilityMounts: Map<string, CapabilityMount> | undefined;
-  // eslint-disable-next-line no-var
   var __capabilityMountGraphVersion: number | undefined;
 }
 

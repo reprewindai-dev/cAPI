@@ -8,8 +8,10 @@ export const dynamic = "force-dynamic";
  * This handler announced a `/api/mcp/message` endpoint that was never
  * implemented, so every client that followed it hung. The Veklom MCP server
  * speaks Streamable HTTP at `/mcp`; point clients there.
+ *
+ * The request is accepted for the route-handler contract but deliberately never read.
  */
-export async function GET(_request: Request) {
+export const GET: (request: Request) => Promise<NextResponse> = async () => {
   return NextResponse.json(
     {
       error: "MCP_SSE_TRANSPORT_RETIRED",
@@ -18,4 +20,4 @@ export async function GET(_request: Request) {
     },
     { status: 410 },
   );
-}
+};

@@ -93,7 +93,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Legacy OpenAPI proxy registration remains administrative only.
-    const { server_id, openapi_url, base_url } = body as any;
+    const { server_id, openapi_url, base_url } = body as {
+      server_id?: string;
+      openapi_url?: string;
+      base_url?: string;
+    };
     if (!server_id || !openapi_url || !base_url) {
       return NextResponse.json(
         { error: "server_id, openapi_url, and base_url are required for OpenAPI proxy, or provide a valid native MCP descriptor" },

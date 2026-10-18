@@ -26,10 +26,12 @@ export default function GovernancePage() {
   const [cap, setCap] = useState("");
   const [result, setResult] = useState<{ permissions: EffectivePermissions; composition: PolicyComposition } | null>(null);
 
-  useEffect(() => {
-    if (!agent && agents.length) setAgent(agents[0].identity.agent_id);
-    if (!cap && caps.length) setCap(caps[0].capability_id);
-  }, [agents, caps, agent, cap]);
+  // Default the selection to the first live agent/capability once data arrives.
+  // Adjusting state during render avoids an extra effect-driven commit.
+  const firstAgent = agents[0]?.identity.agent_id;
+  const firstCap = caps[0]?.capability_id;
+  if (!agent && firstAgent) setAgent(firstAgent);
+  if (!cap && firstCap) setCap(firstCap);
 
   useEffect(() => {
     if (!agent || !cap) return;

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_request: Request) {
+// The request is accepted for the route-handler contract but deliberately never read.
+export const POST: (request: Request) => Promise<NextResponse> = async () => {
   return NextResponse.json(
     {
       error: "LEGACY_EXECUTION_ENTRYPOINT_RETIRED",
@@ -12,4 +13,4 @@ export async function POST(_request: Request) {
     },
     { status: 410 },
   );
-}
+};
