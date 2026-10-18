@@ -247,6 +247,66 @@ describe("cAPI Interlink capability bridge", () => {
     expect(await response.json()).toEqual({ error: "CAPPO_UNREACHABLE" });
   });
 
+  describe("timeouts", () => {
+    // A fetch that never answers and rejects only when the bridge aborts it.
+    function hangingFetch() {
+      return vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("The operation was aborted", "AbortError")),
+            );
+          }),
+      );
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("waits past CAPPO's worst-case execute (target call plus three anchors) before giving up", async () => {
+      const fetchMock = hangingFetch();
+      vi.stubGlobal("fetch", fetchMock);
+      let settled = false;
+      const pending = POST(
+        new Request("http://localhost/api/v1/capi/interlink/capability/mounts/mount-1/execute", {
+          method: "POST",
+          headers: { authorization: "Bearer vlm_mount-1.secret" },
+        }),
+        context("mounts", "mount-1", "execute"),
+      ).then((response) => {
+        settled = true;
+        return response;
+      });
+
+      // 15 s compute target + 3 x 8 s PGL anchors = 39 s: the bridge must still be waiting.
+      await vi.advanceTimersByTimeAsync(39_000);
+      expect(settled).toBe(false);
+      expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(6_000);
+      const response = await pending;
+      expect(response.status).toBe(504);
+      expect(await response.json()).toEqual({ error: "CAPPO_UNREACHABLE" });
+    });
+
+    it("keeps reads on the short timeout", async () => {
+      vi.stubGlobal("fetch", hangingFetch());
+      const pending = GET(
+        new Request("http://localhost/api/v1/capi/interlink/capability/packages"),
+        context("packages"),
+      );
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      const response = await pending;
+      expect(response.status).toBe(504);
+    });
+  });
+
   it("retires the local mount execution route", async () => {
     const response = await legacyExecute(
       new Request("http://localhost/api/mount/execute", { method: "POST" }),
